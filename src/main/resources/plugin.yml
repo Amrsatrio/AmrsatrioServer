@@ -107,6 +107,8 @@ commands:
 #    permission: worldgen.command
   zipserver:
     usage: /<command>
+  inputphone:
+    usage: /<command> <up|down|left|right>
 #  createexplorermap:
 #    description: Creates an explorer map and gives it to you
 #permissions:

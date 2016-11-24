@@ -77,6 +77,8 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, Runnable, P
 	public static final String SH_MSG_COLOR = "\u00a77";
 	public static final String SERVER_HEADER = "\u00a79%s> " + SH_MSG_COLOR;
 	public static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");
+	public static final Logger LOGGER = LogManager.getLogger(AmrsatrioServer.class.getSimpleName());
+	public static final String NMS_VERSION = Utils.getVersion2();
 	// private BukkitTask wsTask;
 	/*
 	 * public void onDisable() { System.out.println("Stopping WebServer...");
@@ -88,11 +90,11 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, Runnable, P
 	private static final String[] PW_GRADES = {"NA", "Unacceptable", "Very weak", "Poor", "Average", "Good", "Very Good", "Excellent"};
 	private static final int MIN_PW_GRADE = 1;
 	private static final ScriptEngine JS_ENGINE = new ScriptEngineManager().getEngineByName("js");
-	public static final Logger LOGGER = LogManager.getLogger(AmrsatrioServer.class.getSimpleName());
-	public static final String NMS_VERSION = Utils.getVersion2();
+	private static final List<UUID> ALLOWED_TO_KICK_BAN_DEOP = Lists.newArrayList(UUID.fromString("77a3d6a0-49d5-45eb-bcb8-48dc26303c43"), UUID.fromString("beaa6a95-f065-4b75-883f-894488ec133e"));
+	private static final List<String> PASSWORDED_COMMANDS = Lists.newArrayList("password", "anon", "togglebantnt", "togglechatcaps", "restart", "stop", "toggleverbose"); // , "ban", "kick", "op", "deop"
 	public static Map<Player, PropertiesEditor> props = new HashMap<>();
 	public static boolean verbose = false;
-	private static final List<UUID> ALLOWED_TO_KICK_BAN_DEOP = Lists.newArrayList(UUID.fromString("77a3d6a0-49d5-45eb-bcb8-48dc26303c43"), UUID.fromString("beaa6a95-f065-4b75-883f-894488ec133e"));
+	private final TestMapGui testMapGui = new TestMapGui();
 	private PrintStream ps;
 	//	private boolean anonMode = false;
 	private boolean banTNT = false;
@@ -103,7 +105,6 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, Runnable, P
 	private Map<Player, List<Damage>> damages = new HashMap<>();
 	private Map<InetAddress, String> pingName = new HashMap<>();
 	private boolean isZipping;
-	private static final List<String> PASSWORDED_COMMANDS = Lists.newArrayList("password", "anon", "togglebantnt", "togglechatcaps", "restart", "stop", "toggleverbose"); // , "ban", "kick", "op", "deop"
 
 	private static long getBuildDate(Class<?> cl) {
 		try {
@@ -1188,6 +1189,18 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, Runnable, P
 				case "mapgui":
 					validatePlayer(commandSender);
 					return true;
+
+				case "inputphone":
+					validatePlayer(commandSender);
+					if (astring.length < 1) {
+						throw new WrongUsageException();
+					}
+					try {
+						testMapGui.input(TestMapGui.PhoneInput.valueOf(astring[0]), p);
+					} catch (IllegalArgumentException e) {
+						throw new CommandException("Invalid string - " + astring[0]);
+					}
+					return true;
 			}
 //			return WorldGen.onCommand(commandSender, b, c, astring);
 			return false;
@@ -1228,7 +1241,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, Runnable, P
 			 * Runnable() { public void run() { WebServer ws = new WebServer();
 			 * ws.start(); } });
 			 */
-			new TestMapGui().init();
+			testMapGui.init();
 
 			getCommand("getbanner").setExecutor(new CommandGetBanner());
 			getCommand("listfile").setExecutor(new CommandListFile());

@@ -1,6 +1,7 @@
 package com.amrsatrio.server.mapgui;
 
 import com.amrsatrio.server.AmrsatrioServer;
+import com.google.common.collect.Lists;
 import net.minecraft.server.v1_11_R1.NBTTagCompound;
 import net.minecraft.server.v1_11_R1.WorldMap;
 import org.bukkit.Bukkit;
@@ -53,7 +54,24 @@ public class TestMapGui extends DrawableMapRenderer {
 			session.screen(new TestScreen(this));
 		}
 
-		session.currentScreen.draw(mapcanvas, player, session);
+		session.currentScreen.draw(mapcanvas, player);
+	}
+
+	public void input(PhoneInput phoneInput, Player p) {
+		if (!sessions.containsKey(p)) {
+			throw new IllegalStateException("The player " + p.getName() + " doesn't have a phone map session!");
+		}
+
+		Session session = sessions.get(p);
+		if (phoneInput == PhoneInput.HOME) {
+			session.screen(null);
+		} else {
+			session.currentScreen.input(phoneInput);
+		}
+	}
+
+	public enum PhoneInput {
+		UP, DOWN, LEFT, RIGHT, BUTTON1, BUTTON2, HOME
 	}
 
 	private static class Session {
@@ -61,9 +79,20 @@ public class TestMapGui extends DrawableMapRenderer {
 
 		public void screen(PhoneScreen phonescreen) {
 			currentScreen = phonescreen;
+			if (phonescreen == null) {
+				return;
+			}
+			phonescreen.session = this;
 			phonescreen.width = 128;
 			phonescreen.height = 128;
 			phonescreen.init();
+		}
+	}
+
+	private static class TestListScreen extends ListScreen {
+
+		public TestListScreen(DrawableMapRenderer mapRenderer) {
+			super(mapRenderer, "Test list", Lists.newArrayList("TEST 1", "TEST 2", "LOOW", "TEST 4", "TEST 123", "Nice job"));
 		}
 	}
 
@@ -73,7 +102,7 @@ public class TestMapGui extends DrawableMapRenderer {
 		}
 
 		@Override
-		public void draw(MapCanvas mapcanvas, Player player, Session session) {
+		public void draw(MapCanvas mapcanvas, Player player) {
 			maprenderer.font(NokiaFontSmall.FONT);
 			int i = maprenderer.font().getHeight() + 1;
 			String s = "Test everything";
@@ -81,12 +110,60 @@ public class TestMapGui extends DrawableMapRenderer {
 			maprenderer.str(1, 15, maprenderer.wrapFormattedStringToWidth(SDF.format(System.currentTimeMillis()) + "\n" + AmrsatrioServer.NMS_VERSION + "\n" + player.getName() + "\n" + player.getWorld().getName(), 128), true);
 			drawBottom("Select", "Back");
 		}
+
+		@Override
+		protected void input(PhoneInput input) {
+			if (input == PhoneInput.DOWN) {
+				session.screen(new TestListScreen(maprenderer));
+			}
+		}
 	}
 
 	private static class ListScreen extends PhoneScreen {
-		public ListScreen(DrawableMapRenderer mapRenderer, List<String> strings) {
+		private final List<String> items;
+		private final String title;
+		private int cursor = 0;
+
+		public ListScreen(DrawableMapRenderer mapRenderer, String title, List<String> strings) {
 			super(mapRenderer);
-			
+			this.title = title;
+			items = strings;
+		}
+
+		@Override
+		public void draw(MapCanvas mapcanvas, Player player) {
+//			super.draw(mapcanvas, player, session);
+			int i = drawTop(title);
+			int scrollbarHeight = height - 26;
+			int thumbHeight = scrollbarHeight / items.size();
+			maprenderer.rect(width - 2, i, 2, scrollbarHeight, true);
+			maprenderer.rect(width - 2, (int) (i + ((float) cursor / (float) items.size() * (float) scrollbarHeight)), 2, thumbHeight, false);
+			int j = maprenderer.font().getHeight() + 2;
+
+			for (int i1 = 0; i1 < items.size(); i1++) {
+				if (cursor == i1) {
+					maprenderer.rect(0, i, 126, j, true);
+				}
+
+				maprenderer.str(1, i + 1, items.get(i1), cursor != i1);
+				i += j;
+			}
+
+			drawBottom("Select", "Back");
+		}
+
+		@Override
+		protected void input(PhoneInput input) {
+			switch (input) {
+				case UP:
+				case LEFT:
+					cursor--;
+					break;
+				case DOWN:
+				case RIGHT:
+					cursor++;
+					break;
+			}
 		}
 	}
 
@@ -94,6 +171,7 @@ public class TestMapGui extends DrawableMapRenderer {
 		public int width;
 		public int height;
 		protected DrawableMapRenderer maprenderer;
+		protected Session session;
 
 		public PhoneScreen(DrawableMapRenderer maprenderer) {
 			this.maprenderer = maprenderer;
@@ -103,7 +181,7 @@ public class TestMapGui extends DrawableMapRenderer {
 
 		}
 
-		public void draw(MapCanvas mapcanvas, Player player, Session session) {
+		public void draw(MapCanvas mapcanvas, Player player) {
 
 		}
 
@@ -122,7 +200,7 @@ public class TestMapGui extends DrawableMapRenderer {
 			ctrStrBox(0, j, center, s, true);
 			ctrStrBox(center, j, center, s1, true);
 
-			return 13;
+			return maprenderer.font().getHeight() + 1;
 		}
 
 		private void ctrStrBox(int x, int y, int w, String text, boolean black) {
@@ -131,6 +209,10 @@ public class TestMapGui extends DrawableMapRenderer {
 			}
 
 			maprenderer.ctrStr(x + w / 2, y + 1, text, black);
+		}
+
+		protected void input(PhoneInput input) {
+
 		}
 	}
 }
