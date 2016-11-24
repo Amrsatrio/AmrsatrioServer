@@ -1,7 +1,6 @@
 package com.amrsatrio.server.bukkitcompat;
 
-import java.io.PrintStream;
-
+import com.amrsatrio.server.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -9,7 +8,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import com.amrsatrio.server.Utils;
+import java.io.PrintStream;
 
 @SuppressWarnings("deprecation")
 public class Executor implements CommandExecutor {
@@ -24,8 +23,9 @@ public class Executor implements CommandExecutor {
 		String CommandName = command.getName().toLowerCase();
 		String SourceName = "";
 		boolean isServerCommand = !(sender instanceof Player);
-		if (isServerCommand) SourceName = "CONSOLE";
-		else {
+		if (isServerCommand) {
+			SourceName = "CONSOLE";
+		} else {
 			p = (Player) sender;
 			SourceName = p.getName();
 		}
@@ -37,10 +37,14 @@ public class Executor implements CommandExecutor {
 			String Target = split[0];
 			String Message = Utils.buildString(split, 1);
 			Player TargetPlayer = Bukkit.getServer().getPlayer(Target);
-			if (TargetPlayer == null) sender.sendMessage(ChatColor.GRAY + "There's no player by that name online");
-			else {
-				if (isServerCommand) TargetPlayer.sendMessage(ChatColor.AQUA + Message);
-				else TargetPlayer.sendMessage(ChatColor.GRAY + SourceName + " whispers " + Message);
+			if (TargetPlayer == null) {
+				sender.sendMessage(ChatColor.GRAY + "There's no player by that name online");
+			} else {
+				if (isServerCommand) {
+					TargetPlayer.sendMessage(ChatColor.AQUA + Message);
+				} else {
+					TargetPlayer.sendMessage(ChatColor.GRAY + SourceName + " whispers " + Message);
+				}
 
 			}
 		} else if (CommandName.equals("kickreason")) {
@@ -55,13 +59,20 @@ public class Executor implements CommandExecutor {
 			String Target = split[0];
 			String Message = Utils.buildString(split, 1);
 			Player TargetPlayer = Bukkit.getServer().getPlayer(Target);
-			if (TargetPlayer == null) sender.sendMessage(ChatColor.GRAY + "There's no player by that name online");
-			else TargetPlayer.kickPlayer(Message);
+			if (TargetPlayer == null) {
+				sender.sendMessage(ChatColor.GRAY + "There's no player by that name online");
+			} else {
+				TargetPlayer.kickPlayer(Message);
+			}
 		} else if (CommandName.equals("svping")) {
-			if (isServerCommand) this.errout.println("0 0 [MCMAX] pong " + Utils.buildString(split, 0));
-			else sender.sendMessage(ChatColor.AQUA + "pong " + Utils.buildString(split, 0));
-		} else if (CommandName.equals("pushcommand"))
+			if (isServerCommand) {
+				this.errout.println("0 0 [MCMAX] pong " + Utils.buildString(split, 0));
+			} else {
+				sender.sendMessage(ChatColor.AQUA + "pong " + Utils.buildString(split, 0));
+			}
+		} else if (CommandName.equals("pushcommand")) {
 			System.out.println(SourceName + " tried command: " + Utils.buildString(split, 0));
+		}
 		return true;
 	}
 }

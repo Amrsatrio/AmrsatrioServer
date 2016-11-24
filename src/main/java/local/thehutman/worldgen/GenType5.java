@@ -4,27 +4,26 @@
  */
 package local.thehutman.worldgen;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.util.Random;
-
 import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.util.Random;
 
 /**
  * Type5 generation of structures at the player's current location. This also
  * takes into account a Y component for the bounding box used to draw the
  * object.
- * 
+ * <p>
  * A constructor: c(int,Random,StructureBoundingBox,int)
- * 
+ * <p>
  * A method: a(World,Random,StructureBoundingBox)
- * 
+ * <p>
  * Example: WorldGenStrongholdPortalRoom
- * 
+ *
  * @author Huttinger
- * 
  */
 class GenType5 {
 
@@ -32,23 +31,18 @@ class GenType5 {
 	 * Type5 generation of structures at the player's current location. This
 	 * also takes into account a Y component for the bounding box used to draw
 	 * the object.
-	 * 
+	 * <p>
 	 * A constructor: c(int,Random,StructureBoundingBox,int)
-	 * 
+	 * <p>
 	 * A method: a(World,Random,StructureBoundingBox)
-	 * 
-	 * @param player
-	 *            Player object
-	 * @param radius
-	 *            Bounding box to build the object
-	 * @param className
-	 *            Name of class for structure to build. Must have a simple
-	 *            constructor with no parameters and the generate method (a)
-	 *            takes world, random, and position arguments.
-	 * @param permName
-	 *            Name of permission required (i.e. worldgen.command.simple)
-	 * @param dispName
-	 *            Name of structure as displayed to the user/logger
+	 *
+	 * @param player    Player object
+	 * @param radius    Bounding box to build the object
+	 * @param className Name of class for structure to build. Must have a simple
+	 *                  constructor with no parameters and the generate method (a)
+	 *                  takes world, random, and position arguments.
+	 * @param permName  Name of permission required (i.e. worldgen.command.simple)
+	 * @param dispName  Name of structure as displayed to the user/logger
 	 */
 	public static void generate(Player player, int radius, String namePerm, String nameDisplay, String nameClass) {
 
@@ -64,8 +58,7 @@ class GenType5 {
 
 			// Get Crafting packages
 			WorldInterface i = new WorldInterface(player, nameClass);
-			if(i.oCraftWorldHandle == null)
-			{
+			if (i.oCraftWorldHandle == null) {
 				player.sendMessage(ChatColor.RED + "Failed to generate " + nameDisplay + ". Please check server log.");
 				return;
 			}
@@ -89,8 +82,7 @@ class GenType5 {
 			Object oGen = cGen.newInstance(0, i.oRandom, oBox, 0);
 
 			// Execute the generation start method
-			@SuppressWarnings("rawtypes")
-			Class[] parameterTypes = new Class[3];
+			@SuppressWarnings("rawtypes") Class[] parameterTypes = new Class[3];
 			parameterTypes[0] = i.clObjWorld;
 			parameterTypes[1] = i.oRandom.getClass();
 			parameterTypes[2] = i.clObjStrucBox;
@@ -98,9 +90,9 @@ class GenType5 {
 			Boolean r = (Boolean) a.invoke(oGen, i.oCraftWorldHandle, i.oRandom, oBox);
 
 			// Check results
-			if (!r)
+			if (!r) {
 				player.sendMessage(ChatColor.RED + "Unable to generate a " + nameDisplay + " at this location.");
-			else {
+			} else {
 				Utility.log.info("Generated " + nameDisplay + " at: (" + x + "," + z + ")");
 				player.sendMessage("Generated a new " + nameDisplay + "!");
 			}

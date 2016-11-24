@@ -4,44 +4,39 @@
  */
 package local.thehutman.worldgen;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-
 import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+
 /**
  * Type4 generation of structures at the player's current location.
- * 
+ * <p>
  * A constructor: c()
- * 
+ * <p>
  * A method: a(World,Random,int,int,int)
- * 
+ * <p>
  * Example: WorldGenDesertWell
- * 
+ *
  * @author Huttinger
- * 
  */
 class GenType4 {
 
 	/**
 	 * Type4 generation of structures at the player's current location.
-	 * 
+	 * <p>
 	 * A constructor: c()
-	 * 
+	 * <p>
 	 * A method: a(World,Random,int,int,int)
-	 * 
-	 * @param player
-	 *            Player object
-	 * @param className
-	 *            Name of class for structure to build. Must have a simple
-	 *            constructor with no parameters and the generate method (a)
-	 *            takes world, random, and position arguments.
-	 * @param permName
-	 *            Name of permission required (i.e. worldgen.command.simple)
-	 * @param dispName
-	 *            Name of structure as displayed to the user/logger
+	 *
+	 * @param player    Player object
+	 * @param className Name of class for structure to build. Must have a simple
+	 *                  constructor with no parameters and the generate method (a)
+	 *                  takes world, random, and position arguments.
+	 * @param permName  Name of permission required (i.e. worldgen.command.simple)
+	 * @param dispName  Name of structure as displayed to the user/logger
 	 */
 	@SuppressWarnings("deprecation")
 	public static void generate(Player player, String namePerm, String nameDisplay, String nameClass) {
@@ -58,8 +53,7 @@ class GenType4 {
 
 			// Get Crafting packages
 			WorldInterface i = new WorldInterface(player, nameClass);
-			if(i.oCraftWorldHandle == null)
-			{
+			if (i.oCraftWorldHandle == null) {
 				player.sendMessage(ChatColor.RED + "Failed to generate " + nameDisplay + ". Please check server log.");
 				return;
 			}
@@ -70,10 +64,11 @@ class GenType4 {
 			int x = block.getX();
 			int z = block.getZ();
 			int y = player.getWorld().getHighestBlockYAt(x, z);
-			
+
 			// Nether world heights don't work right
-			if(player.getWorld().getEnvironment().getId() == -1)
+			if (player.getWorld().getEnvironment().getId() == -1) {
 				y = block.getY();
+			}
 
 			// Get the witch hut gen object via our current block's chunk
 			Constructor<?> cGen = i.clObjGenerator.getConstructor();
@@ -81,8 +76,7 @@ class GenType4 {
 			Object oGen = cGen.newInstance();
 
 			// Execute the generation start method
-			@SuppressWarnings("rawtypes")
-			Class[] parameterTypes = new Class[5];
+			@SuppressWarnings("rawtypes") Class[] parameterTypes = new Class[5];
 			parameterTypes[0] = i.clObjWorld;
 			parameterTypes[1] = i.oRandom.getClass();
 			parameterTypes[2] = int.class;
@@ -92,10 +86,9 @@ class GenType4 {
 			Boolean r = (Boolean) a.invoke(oGen, i.oCraftWorldHandle, i.oRandom, x, y, z);
 
 			// Check results
-			if (!r)
-				player.sendMessage(ChatColor.RED + "Unable to generate " + nameDisplay
-						+ " at this location.  Be sure you are on proper materials for this structure.");
-			else {
+			if (!r) {
+				player.sendMessage(ChatColor.RED + "Unable to generate " + nameDisplay + " at this location.  Be sure you are on proper materials for this structure.");
+			} else {
 				Utility.log.info("Generated " + nameDisplay + " at: (" + x + "," + z + ")");
 				player.sendMessage("Generated a new " + nameDisplay + "!");
 			}

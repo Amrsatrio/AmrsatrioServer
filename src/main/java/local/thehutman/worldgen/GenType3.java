@@ -4,45 +4,39 @@
  */
 package local.thehutman.worldgen;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.util.Random;
-
 import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.util.Random;
+
 /**
  * Type3 generation of a Minecraft structure. This has requirements of:
- * 
+ * <p>
  * A constructor: c(World,Random,int) and inherits from StructureStart.
- * 
+ * <p>
  * A method: a(World,Random,StructureBoundingBox)
- * 
+ * <p>
  * Example: WorldGenMineshaftStart
- * 
+ *
  * @author Huttinger
- * 
  */
 class GenType3 {
 
 	/**
 	 * Type3 generation of a Minecraft structure. This has requirements of:
-	 * 
+	 * <p>
 	 * A constructor: c(World,Random,int) and inherits from StructureStart.
-	 * 
+	 * <p>
 	 * A method: a(World,Random,StructureBoundingBox)
-	 * 
-	 * @param player
-	 *            Player object
-	 * @param radius
-	 *            Radius to limit creation to
-	 * @param namePerm
-	 *            Name of permission required (i.e. worldgen.command.simple)
-	 * @param nameDisplay
-	 *            Name of structure being built as displayed to the user/logger
-	 * @param nameClass
-	 *            Name of class for structure to build.
+	 *
+	 * @param player      Player object
+	 * @param radius      Radius to limit creation to
+	 * @param namePerm    Name of permission required (i.e. worldgen.command.simple)
+	 * @param nameDisplay Name of structure being built as displayed to the user/logger
+	 * @param nameClass   Name of class for structure to build.
 	 */
 	public static void generate(Player player, int radius, String namePerm, String nameDisplay, String nameClass) {
 
@@ -58,8 +52,7 @@ class GenType3 {
 
 			// Get Crafting packages
 			WorldInterface i = new WorldInterface(player, nameClass);
-			if(i.oCraftWorldHandle == null)
-			{
+			if (i.oCraftWorldHandle == null) {
 				player.sendMessage(ChatColor.RED + "Failed to generate " + nameDisplay + ". Please check server log.");
 				return;
 			}
@@ -83,8 +76,7 @@ class GenType3 {
 			Object oBox = cBox.newInstance(x - radius, z - radius, x + radius, z + radius);
 
 			// Execute the generation start method
-			@SuppressWarnings("rawtypes")
-			Class[] parameterTypes = new Class[3];
+			@SuppressWarnings("rawtypes") Class[] parameterTypes = new Class[3];
 			parameterTypes[0] = i.clObjWorld;
 			parameterTypes[1] = i.oRandom.getClass();
 			parameterTypes[2] = i.clObjStrucBox;

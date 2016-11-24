@@ -4,17 +4,16 @@
  */
 package local.thehutman.worldgen;
 
+import org.bukkit.entity.Player;
+
 import java.lang.reflect.Method;
 import java.util.Random;
-
-import org.bukkit.entity.Player;
 
 /**
  * Class used to get baseline class and object references into the Bukkit system
  * via reflection that are used in various generator constructs.
- * 
- * @author Huttinger
  *
+ * @author Huttinger
  */
 public class WorldInterface {
 
@@ -78,7 +77,7 @@ public class WorldInterface {
 
 	/**
 	 * Get the chunk provider object for the current world.
-	 * 
+	 *
 	 * @param player
 	 * @return
 	 * @throws ClassNotFoundException

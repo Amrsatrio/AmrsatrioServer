@@ -1,12 +1,9 @@
 package com.amrsatrio.server;
 
-import java.util.List;
-
+import net.minecraft.server.v1_11_R1.Entity;
 import org.bukkit.command.CommandSender;
 
-import net.minecraft.server.v1_11_R1.Entity;
-import net.minecraft.server.v1_11_R1.ICommandListener;
-import net.minecraft.server.v1_11_R1.PlayerSelector;
+import java.util.List;
 
 public class Selector {
 	public static List<Entity> select(CommandSender a, String string) {

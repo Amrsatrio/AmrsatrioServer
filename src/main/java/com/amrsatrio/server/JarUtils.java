@@ -1,12 +1,6 @@
 package com.amrsatrio.server;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.util.Enumeration;
@@ -76,8 +70,7 @@ public class JarUtils {
 		if (!RUNNING_FROM_JAR) {
 			return null; // null if not running from jar
 		}
-		String path = new File(JarUtils.class.getProtectionDomain().getCodeSource().getLocation().getPath())
-				.getAbsolutePath();
+		String path = new File(JarUtils.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getAbsolutePath();
 		path = URLDecoder.decode(path, "UTF-8");
 		return new JarFile(path);
 	}

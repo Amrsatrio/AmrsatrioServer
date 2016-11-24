@@ -4,26 +4,17 @@
  */
 package local.thehutman.worldgen;
 
-import org.bukkit.ChatColor;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
-
-import com.amrsatrio.server.AmrsatrioServer;
-
 /**
  * This is a plugin for Bukkit that provides some manully started
  * world-generation commands for things like villages, witch's hut, and
  * strongholds.
- * 
+ * <p>
  * Credit to xxx and yyy for some initial code ideas for generating villages,
  * which I have been extended into a much more robust solution that removes
  * dependency issues with server build classes via reflection. I then spent some
  * time working out how to generate other structures :)
- * 
+ *
  * @author Huttinger
- * 
  */
 public class WorldGen {
 //

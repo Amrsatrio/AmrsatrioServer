@@ -1,6 +1,7 @@
 package com.amrsatrio.server.mapgui;
 
 public class NokiaFontSmall extends MapFont {
+	public static final NokiaFontSmall FONT = new NokiaFontSmall(false);
 	//	private static final int[][] fontDataNokiaColor = new int[][]{
 //			{0, 0b11, 0b11, 0b11, 0b01, 0b01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // '
 //			{0, 0, 0b0111110, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b0111110, 0, 0, 0}, // 0
@@ -80,8 +81,7 @@ public class NokiaFontSmall extends MapFont {
 //			{0, 0, 0, 0, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b0110110, 0b0110110, 0b0110110, 0b0011100, 0b0001100, 0b0001100, 0b0000111, 0b0000011}, // y
 //			{0, 0, 0, 0, 0b111111, 0b110000, 0b011000, 0b011000, 0b001100, 0b000110, 0b000110, 0b000011, 0b111111, 0, 0, 0}, // z
 //	};
-	private static final int[][] fontData = new int[][]{
-			{0, 0b110, 0b110, 0b110, 0b110, 0b110, 0b110, 0, 0b110, 0b110, 0, 0}, // !
+	private static final int[][] fontData = new int[][]{{0, 0b110, 0b110, 0b110, 0b110, 0b110, 0b110, 0, 0b110, 0b110, 0, 0}, // !
 			{0b101, 0b101, 0b101, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // "
 			{0, 0b01001000, 0b01001000, 0b11111110, 0b00100100, 0b00100100, 0b00100100, 0b01111111, 0b00010010, 0b00010010, 0, 0}, // #
 			{0b00100, 0b00100, 0b11110, 0b00011, 0b00011, 0b01110, 0b11000, 0b11000, 0b01111, 0b00100, 0b00100, 0}, // $
@@ -174,7 +174,6 @@ public class NokiaFontSmall extends MapFont {
 	};
 	private static final String FONT_CHARS = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz";
 	private static final int HEIGHT = 12;
-	public static final NokiaFontSmall FONT = new NokiaFontSmall(false);
 
 	public NokiaFontSmall() {
 		this(true);

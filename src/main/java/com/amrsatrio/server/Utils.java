@@ -13,10 +13,8 @@ import org.bukkit.command.*;
 import org.bukkit.craftbukkit.v1_11_R1.CraftServer;
 import org.bukkit.craftbukkit.v1_11_R1.command.CraftBlockCommandSender;
 import org.bukkit.craftbukkit.v1_11_R1.command.ProxiedNativeCommandSender;
-import org.bukkit.craftbukkit.v1_11_R1.entity.CraftMinecartCommand;
 import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.minecart.CommandMinecart;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -32,12 +30,23 @@ import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Pattern;
-import java.util.zip.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class Utils {
+	public static final long KB_IN_BYTES = 1024;
+	public static final long MB_IN_BYTES = KB_IN_BYTES * 1024;
+	public static final long GB_IN_BYTES = MB_IN_BYTES * 1024;
+	public static final long TB_IN_BYTES = GB_IN_BYTES * 1024;
+	public static final long PB_IN_BYTES = TB_IN_BYTES * 1024;
+	public static final int FLAG_SHORTER = 1 << 0;
+	public static final int FLAG_CALCULATE_ROUNDED = 1 << 1;
 	private static final Map<Class<?>, Class<?>> CORRESPONDING_TYPES = new HashMap<>();
+	private static int BUFFER = 32768;
 
 	public static void a(Player a, File b) {
 		String msgHead = "Preview";
@@ -76,8 +85,9 @@ public class Utils {
 					AmrsatrioServer.msg(a, "\u00a7oAttempting to read this file as text", msgHead);
 					try (BufferedReader br = new BufferedReader(new FileReader(b))) {
 						String cl;
-						while ((cl = br.readLine()) != null)
+						while ((cl = br.readLine()) != null) {
 							a.sendMessage(cl);
+						}
 						br.close();
 					}
 					break;
@@ -209,11 +219,12 @@ public class Utils {
 		if (l1.length != l2.length) {
 			return false;
 		}
-		for (int i = 0; i < l1.length; i++)
+		for (int i = 0; i < l1.length; i++) {
 			if (l1[i] != l2[i]) {
 				equal = false;
 				break;
 			}
+		}
 		return equal;
 	}
 
@@ -229,10 +240,11 @@ public class Utils {
 		if (a.length != o.length) {
 			return false;
 		}
-		for (int i = 0; i < a.length; i++)
+		for (int i = 0; i < a.length; i++) {
 			if (!a[i].equals(o[i]) && !a[i].isAssignableFrom(o[i])) {
 				return false;
 			}
+		}
 		return true;
 	}
 
@@ -249,14 +261,6 @@ public class Utils {
 		final BytesResult res = formatBytes(sizeBytes, 0);
 		return String.format("%1$s %2$s", res.value, res.units);
 	}
-
-	public static final long KB_IN_BYTES = 1024;
-	public static final long MB_IN_BYTES = KB_IN_BYTES * 1024;
-	public static final long GB_IN_BYTES = MB_IN_BYTES * 1024;
-	public static final long TB_IN_BYTES = GB_IN_BYTES * 1024;
-	public static final long PB_IN_BYTES = TB_IN_BYTES * 1024;
-	public static final int FLAG_SHORTER = 1 << 0;
-	public static final int FLAG_CALCULATE_ROUNDED = 1 << 1;
 
 	public static BytesResult formatBytes(long sizeBytes, int flags) {
 		final boolean isNegative = (sizeBytes < 0);
@@ -366,16 +370,42 @@ public class Utils {
 		return "";
 	}
 
-	public static class BytesResult {
-		public final String value;
-		public final String units;
-		public final long roundedBytes;
-
-		public BytesResult(String value, String units, long roundedBytes) {
-			this.value = value;
-			this.units = units;
-			this.roundedBytes = roundedBytes;
+	public static long getBuildDate(Class<?> cl) {
+		try {
+			File f = new File(cl.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
+//			BasicFileAttributes attrs = Files.readAttributes(f.toPath(), BasicFileAttributes.class);
+//			return attrs.creationTime().toMillis();
+			return f.lastModified();
+		} catch (Exception e) {
+			return 0;
 		}
+	}
+
+	public static String disabledOrEnabled(boolean flag) {
+		return flag ? "\u00a7aEnabled" : "\u00a7cDisabled";
+	}
+
+	public static File getTimestampedPNGFileForDirectory(File gameDirectory) {
+		String s = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss").format(new Date());
+		int i = 1;
+
+		while (true) {
+			File file1 = new File(gameDirectory, "Minecraft-" + s + (i == 1 ? "" : "_" + i) + ".zip");
+
+			if (!file1.exists()) {
+				return file1;
+			}
+
+			++i;
+		}
+	}
+
+	public static void updateHF(Player a) {
+		tabHeaderFooter(a, "\u00a7aWelcome to\n\u00a7l" + Bukkit.getServerName(), "\u00a76You're currently in\n\u00a7l" + a.getWorld().getName());
+	}
+
+	public static String plural(int a) {
+		return a == 1 ? "" : "s";
 	}
 
 //	public static String formatFileSize(long number) {
@@ -437,14 +467,16 @@ public class Utils {
 
 	public static List<String> getExistingWorlds() {
 		List<String> res = new ArrayList<>();
-		for (File i : Bukkit.getWorldContainer().listFiles())
+		for (File i : Bukkit.getWorldContainer().listFiles()) {
 			if (i.isDirectory() && !i.getName().endsWith("_nether") && !i.getName().endsWith("_the_end")) {
-				for (String j : i.list())
+				for (String j : i.list()) {
 					if (j.equals("level.dat")) {
 						res.add(i.getName());
 						break;
 					}
+				}
 			}
+		}
 		return res;
 	}
 
@@ -481,11 +513,12 @@ public class Utils {
 	}
 
 	public static Method getMethod(Class<?> clazz, String name, Class<?>... args) {
-		for (Method m : clazz.getMethods())
+		for (Method m : clazz.getMethods()) {
 			if (m.getName().equals(name) && (args.length == 0 || ClassListEqual(args, m.getParameterTypes()))) {
 				m.setAccessible(true);
 				return m;
 			}
+		}
 		return null;
 	}
 
@@ -568,8 +601,9 @@ public class Utils {
 			StringBuffer buffer = new StringBuffer();
 			int read;
 			char[] chars = new char[1024];
-			while ((read = reader.read(chars)) != -1)
+			while ((read = reader.read(chars)) != -1) {
 				buffer.append(chars, 0, read);
+			}
 			return buffer.toString();
 		} finally {
 			if (reader != null) {
@@ -582,8 +616,9 @@ public class Utils {
 		MessageDigest mDigest = MessageDigest.getInstance("SHA1");
 		byte[] result = mDigest.digest(input.getBytes());
 		StringBuffer sb = new StringBuffer();
-		for (int i = 0; i < result.length; i++)
+		for (int i = 0; i < result.length; i++) {
 			sb.append(Integer.toString((result[i] & 0xff) + 0x100, 16).substring(1));
+		}
 		return sb.toString();
 	}
 
@@ -630,8 +665,9 @@ public class Utils {
 	public static Class<?>[] toPrimitiveTypeArray(Class<?>[] classes) {
 		int a = classes != null ? classes.length : 0;
 		Class<?>[] types = new Class<?>[a];
-		for (int i = 0; i < a; i++)
+		for (int i = 0; i < a; i++) {
 			types[i] = getPrimitiveType(classes[i]);
+		}
 		return types;
 	}
 
@@ -689,8 +725,9 @@ public class Utils {
 				BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath));
 				byte[] bytesIn = new byte[BUFFER];
 				int read = 0;
-				while ((read = zis.read(bytesIn)) != -1)
+				while ((read = zis.read(bytesIn)) != -1) {
 					bos.write(bytesIn, 0, read);
+				}
 				bos.close();
 			} else {
 				File dir = new File(filePath);
@@ -714,8 +751,6 @@ public class Utils {
 			AmrsatrioServer.msg(a, s);
 		}
 	}
-
-	private static int BUFFER = 32768;
 
 	// http://stackoverflow.com/questions/1399126/java-util-zip-recreating-directory-structure
 	public static void zip(CommandSender a, File srcFile, File destination) throws IOException {
@@ -775,6 +810,18 @@ public class Utils {
 	private static void copy(InputStream in, File file) throws IOException {
 		try (OutputStream out = new FileOutputStream(file)) {
 			copy(in, out);
+		}
+	}
+
+	public static class BytesResult {
+		public final String value;
+		public final String units;
+		public final long roundedBytes;
+
+		public BytesResult(String value, String units, long roundedBytes) {
+			this.value = value;
+			this.units = units;
+			this.roundedBytes = roundedBytes;
 		}
 	}
 }

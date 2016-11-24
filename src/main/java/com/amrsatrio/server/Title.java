@@ -1,10 +1,5 @@
 package com.amrsatrio.server;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
-
 import net.minecraft.server.v1_11_R1.ChatComponentText;
 import net.minecraft.server.v1_11_R1.PacketPlayOutTitle;
 import net.minecraft.server.v1_11_R1.PlayerConnection;
@@ -51,32 +46,33 @@ public class Title {
 		this.fadeOutTime = fadeOutTime;
 	}
 
-	public void setTitle(String title) {
-		this.title = title;
+	public static void clearTitle(Player player) {
+		// Send timings first
+		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
+		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.CLEAR, null);
+		connection.sendPacket(packet);
+	}
+
+	public static void resetTitle(Player player) {
+		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
+		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.RESET, null);
+		connection.sendPacket(packet);
 	}
 
 	public String getTitle() {
 		return this.title;
 	}
 
-	public void setSubtitle(String subtitle) {
-		this.subtitle = subtitle;
+	public void setTitle(String title) {
+		this.title = title;
 	}
 
 	public String getSubtitle() {
 		return this.subtitle;
 	}
 
-	public void setFadeInTime(int time) {
-		this.fadeInTime = time;
-	}
-
-	public void setFadeOutTime(int time) {
-		this.fadeOutTime = time;
-	}
-
-	public void setStayTime(int time) {
-		this.stayTime = time;
+	public void setSubtitle(String subtitle) {
+		this.subtitle = subtitle;
 	}
 
 	public void setTimingsToTicks() {
@@ -125,29 +121,28 @@ public class Title {
 		}
 	}
 
-	public static void clearTitle(Player player) {
-		// Send timings first
-		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.CLEAR, null);
-		connection.sendPacket(packet);
-	}
-
-	public static void resetTitle(Player player) {
-		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.RESET, null);
-		connection.sendPacket(packet);
-	}
-
 	public int getFadeInTime() {
 		return fadeInTime;
+	}
+
+	public void setFadeInTime(int time) {
+		this.fadeInTime = time;
 	}
 
 	public int getFadeOutTime() {
 		return fadeOutTime;
 	}
 
+	public void setFadeOutTime(int time) {
+		this.fadeOutTime = time;
+	}
+
 	public int getStayTime() {
 		return stayTime;
+	}
+
+	public void setStayTime(int time) {
+		this.stayTime = time;
 	}
 
 	public boolean isTicks() {

@@ -9,8 +9,8 @@ import java.util.HashMap;
 
 public class MapFont {
 	private final HashMap<Character, MapFont.CharacterSprite> chars = new HashMap<>();
-	private int height = 0;
 	protected boolean malleable = true;
+	private int height = 0;
 
 	public void setChar(char ch, MapFont.CharacterSprite sprite) {
 		if (!this.malleable) {

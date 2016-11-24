@@ -1,8 +1,5 @@
 package com.amrsatrio.server;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
@@ -18,36 +15,39 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class CommandGetBanner implements CommandExecutor {
-	public static HashMap<Player, GetBannerGui> openGetBanners = new HashMap<>();
 
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 		boolean isPlayer = sender instanceof Player;
-		if (!isPlayer) return true;
+		if (!isPlayer) {
+			return true;
+		}
 		Player p = (Player) sender;
 		GetBannerGui gbg = new GetBannerGui(p);
 		gbg.refreshItems();
-		openGetBanners.put(p, gbg);
+		AmrsatrioServer.getBannerInstances.put(p, gbg);
 		return true;
 	}
 
 	@SuppressWarnings("deprecation")
 	static class GetBannerGui {
+		public boolean switching = false;
 		private Player pl;
 		private boolean color = true;
 		private boolean first = true;
 		private ItemStack banner = new ItemStack(Material.BANNER);
 		private PatternType toAddPattern;
-		public boolean switching = false;
 
 		public GetBannerGui(Player a) {
 			this.pl = a;
 		}
 
 		public void show(Map<Integer, ItemStack> cont) {
-			Inventory inv = Bukkit.createInventory(pl, 6 * 9,
-					color ? (first ? "Select Base Color" : "Select Layer Color") : "Add Layer");
+			Inventory inv = Bukkit.createInventory(pl, 6 * 9, color ? (first ? "Select Base Color" : "Select Layer Color") : "Add Layer");
 			for (Map.Entry<Integer, ItemStack> i : cont.entrySet()) {
 				inv.setItem(i.getKey(), i.getValue());
 			}
@@ -58,7 +58,9 @@ public class CommandGetBanner implements CommandExecutor {
 		}
 
 		public void handle(InventoryClickEvent a) throws Exception {
-			if (a.getCurrentItem() == null || a.getCurrentItem().getItemMeta() == null) return;
+			if (a.getCurrentItem() == null || a.getCurrentItem().getItemMeta() == null) {
+				return;
+			}
 			a.setCancelled(true);
 			if (color) {
 				DyeColor c = DyeColor.getByDyeData(a.getCurrentItem().getData().getData());
@@ -71,15 +73,12 @@ public class CommandGetBanner implements CommandExecutor {
 				}
 				banner.setItemMeta(bm);
 				color = false;
-			} else if (!color) {
+			} else {
 				if (a.getSlot() == 4) {
 					pl.closeInventory();
 					Class<?> is = Utils.getNMSClass("ItemStack");
 					Object entityplayer = Utils.getHandle(pl);
-					Object entityitem = entityplayer.getClass().getMethod("drop", is, Boolean.TYPE).invoke(entityplayer,
-							Utils.getOBCClass("inventory.CraftItemStack").getMethod("asNMSCopy", ItemStack.class)
-									.invoke(null, banner),
-							false);
+					Object entityitem = entityplayer.getClass().getMethod("drop", is, Boolean.TYPE).invoke(entityplayer, Utils.getOBCClass("inventory.CraftItemStack").getMethod("asNMSCopy", ItemStack.class).invoke(null, banner), false);
 					if (entityitem != null) {
 						entityitem.getClass().getMethod("r").invoke(entityitem);
 						entityitem.getClass().getMethod("d", String.class).invoke(entityitem, pl.getName());

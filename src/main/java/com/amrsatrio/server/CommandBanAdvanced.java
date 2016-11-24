@@ -22,10 +22,7 @@ public class CommandBanAdvanced implements CommandExecutor {
 	@Override
 	public boolean onCommand(CommandSender commandsender, Command command, String s, String[] astring) {
 		validateOp(commandsender);
-		Options options = new Options()
-				.addOption(Option.builder("p").desc("Player name/UUID to ban").hasArg().argName("player").required().build())
-				.addOption(Option.builder("t").desc("How long will the player be banned").hasArg().argName("time").build())
-				.addOption(Option.builder("r").desc("Reason of ban").hasArg().argName("reason").build());
+		Options options = new Options().addOption(Option.builder("p").desc("Player name/UUID to ban").hasArg().argName("player").required().build()).addOption(Option.builder("t").desc("How long will the player be banned").hasArg().argName("time").build()).addOption(Option.builder("r").desc("Reason of ban").hasArg().argName("reason").build());
 
 		CommandLine commandline;
 		try {

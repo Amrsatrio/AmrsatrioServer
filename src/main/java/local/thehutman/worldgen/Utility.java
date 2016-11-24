@@ -4,15 +4,14 @@
  */
 package local.thehutman.worldgen;
 
-import java.util.logging.Logger;
-
 import com.amrsatrio.server.Utils;
+
+import java.util.logging.Logger;
 
 /**
  * Utility class for various common routines
- * 
+ *
  * @author Huttinger
- * 
  */
 class Utility {
 
@@ -26,10 +25,8 @@ class Utility {
 	 * Helper function to find the base package string that contains a class.
 	 * Used to help abstract references to version-specific minecraft/bukkit
 	 * classes.
-	 * 
-	 * @param className
-	 *            Class to search for in packages
-	 * 
+	 *
+	 * @param className Class to search for in packages
 	 * @return Name of package that contains the class
 	 */
 	public static String getNMSPrefix(String className) {

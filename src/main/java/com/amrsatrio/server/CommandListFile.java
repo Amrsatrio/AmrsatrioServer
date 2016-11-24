@@ -1,18 +1,5 @@
 package com.amrsatrio.server;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.commons.io.FilenameUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -29,11 +16,90 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
 public class CommandListFile implements CommandExecutor {
+	public static HashMap<Player, FileGui> fileGuis = new HashMap<>();
+	public static String nameForParent = "..";
+
+	public static String checkMark(boolean a) {
+		return a ? "\u00a7a\u2713" : "\u00a7c\u2717";
+	}
+
+	private static ItemStack getItemForFile(File f) throws IOException {
+		ItemStack itemstack = new ItemStack(f.isDirectory() ? (f.getName().equals(nameForParent) ? Material.NETHER_STAR : Material.BOOK) : Material.PAPER);
+		ItemMeta im = itemstack.getItemMeta();
+		im.setDisplayName("\u00a7" + (f.isHidden() ? "7" : "r") + f.getName());
+		String clickedDir = f.getName();
+		int dotIndex = clickedDir.lastIndexOf('.');
+		String ext = ((dotIndex == -1) ? "" : clickedDir.substring(dotIndex + 1).toUpperCase());
+		List<String> theArray = new ArrayList<>();
+		theArray.add("");
+		if (f.canRead() && f.isDirectory() && f.list() != null) {
+			int items = f.list().length;
+			itemstack.setAmount(items > 127 ? 127 : items);
+			theArray.add("\u00a7r" + items + " item" + (items == 1 ? "" : "s"));
+		}
+		BasicFileAttributes attrs = Files.readAttributes(f.toPath(), BasicFileAttributes.class);
+		theArray.add("\u00a7rCreated: " + new SimpleDateFormat().format(new Date(attrs.creationTime().toMillis())));
+		theArray.add("\u00a7rModified: " + new SimpleDateFormat().format(new Date(f.lastModified())));
+		theArray.add("\u00a7rAccessed: " + new SimpleDateFormat().format(new Date(attrs.lastAccessTime().toMillis())));
+		if (f.isFile()) {
+			theArray.add("\u00a7rSize: " + Utils.formatFileSize(f.length()));
+			theArray.add("\u00a7rType: " + ext);
+		}
+		theArray.add("\u00a7rPermissions:");
+		theArray.add("\u00a7r " + checkMark(f.canRead()) + " Read");
+		theArray.add("\u00a7r " + checkMark(f.canWrite()) + " Write");
+		theArray.add("\u00a7r " + checkMark(f.canExecute()) + " Execute");
+		if (f.getName().equals(nameForParent)) {
+			theArray = Arrays.asList("Up/parent folder");
+		}
+		im.setLore(theArray);
+		itemstack.setItemMeta(im);
+		return itemstack;
+	}
+
+	@Override
+	public boolean onCommand(CommandSender a, Command command, String label, String[] b) {
+		try {
+			if (!(a instanceof Player)) {
+				throw new CommandException("Not a player");
+			}
+			Player v0 = (Player) a;
+			File f = new File(Utils.buildString(b, 0));
+			if (b.length == 0) {
+				f = new File(System.getProperty("user.dir"));
+			}
+			if (!f.exists()) {
+				throw new CommandException("Non-existent folder: " + f.getPath());
+			}
+			if (f.listFiles() == null) {
+				throw new CommandException("Unable to list folder contents, no permission");
+			}
+			if (f.listFiles().length == 0) {
+				throw new CommandException("Empty folder");
+			}
+			//System.out.println(f);
+			FileGui fg = new FileGui(v0, f);
+			fileGuis.put(v0, fg);
+			fg.refreshItems();
+			return true;
+		} catch (CommandException e) {
+			AmrsatrioServer.msg(a, "\u00a7c" + e.getMessage());
+			return true;
+		}
+	}
+
 	public class FileGui {
+		public boolean switching = false;
 		private Player pl;
 		private File f;
-		public boolean switching = false;
 		private int pages;
 		private int page = 1;
 		private ArrayList<File> entries = new ArrayList<>();
@@ -150,78 +216,6 @@ public class CommandListFile implements CommandExecutor {
 			// pl.closeInventory();
 			pl.openInventory(inv);
 			switching = false;
-		}
-	}
-
-	public static HashMap<Player, FileGui> fileGuis = new HashMap<>();
-	public static String nameForParent = "..";
-
-	public static String checkMark(boolean a) {
-		return a ? "\u00a7a\u2713" : "\u00a7c\u2717";
-	}
-
-	private static ItemStack getItemForFile(File f) throws IOException {
-		ItemStack itemstack = new ItemStack(f.isDirectory() ? (f.getName().equals(nameForParent) ? Material.NETHER_STAR : Material.BOOK) : Material.PAPER);
-		ItemMeta im = itemstack.getItemMeta();
-		im.setDisplayName("\u00a7" + (f.isHidden() ? "7" : "r") + f.getName());
-		String clickedDir = f.getName();
-		int dotIndex = clickedDir.lastIndexOf('.');
-		String ext = ((dotIndex == -1) ? "" : clickedDir.substring(dotIndex + 1).toUpperCase());
-		List<String> theArray = new ArrayList<>();
-		theArray.add("");
-		if (f.canRead() && f.isDirectory() && f.list() != null) {
-			int items = f.list().length;
-			itemstack.setAmount(items > 127 ? 127 : items);
-			theArray.add("\u00a7r" + items + " item" + (items == 1 ? "" : "s"));
-		}
-		BasicFileAttributes attrs = Files.readAttributes(f.toPath(), BasicFileAttributes.class);
-		theArray.add("\u00a7rCreated: " + new SimpleDateFormat().format(new Date(attrs.creationTime().toMillis())));
-		theArray.add("\u00a7rModified: " + new SimpleDateFormat().format(new Date(f.lastModified())));
-		theArray.add("\u00a7rAccessed: " + new SimpleDateFormat().format(new Date(attrs.lastAccessTime().toMillis())));
-		if (f.isFile()) {
-			theArray.add("\u00a7rSize: " + Utils.formatFileSize(f.length()));
-			theArray.add("\u00a7rType: " + ext);
-		}
-		theArray.add("\u00a7rPermissions:");
-		theArray.add("\u00a7r " + checkMark(f.canRead()) + " Read");
-		theArray.add("\u00a7r " + checkMark(f.canWrite()) + " Write");
-		theArray.add("\u00a7r " + checkMark(f.canExecute()) + " Execute");
-		if (f.getName().equals(nameForParent)) {
-			theArray = Arrays.asList("Up/parent folder");
-		}
-		im.setLore(theArray);
-		itemstack.setItemMeta(im);
-		return itemstack;
-	}
-
-	@Override
-	public boolean onCommand(CommandSender a, Command command, String label, String[] b) {
-		try {
-			if (!(a instanceof Player)) {
-				throw new CommandException("Not a player");
-			}
-			Player v0 = (Player) a;
-			File f = new File(Utils.buildString(b, 0));
-			if (b.length == 0) {
-				f = new File(System.getProperty("user.dir"));
-			}
-			if (!f.exists()) {
-				throw new CommandException("Non-existent folder: " + f.getPath());
-			}
-			if (f.listFiles() == null) {
-				throw new CommandException("Unable to list folder contents, no permission");
-			}
-			if (f.listFiles().length == 0) {
-				throw new CommandException("Empty folder");
-			}
-			//System.out.println(f);
-			FileGui fg = new FileGui(v0, f);
-			fileGuis.put(v0, fg);
-			fg.refreshItems();
-			return true;
-		} catch (CommandException e) {
-			AmrsatrioServer.msg(a, "\u00a7c" + e.getMessage());
-			return true;
 		}
 	}
 }

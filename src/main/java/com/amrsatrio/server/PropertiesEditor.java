@@ -1,14 +1,5 @@
 package com.amrsatrio.server;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.TreeMap;
-
 import net.minecraft.server.v1_11_R1.ChatClickable;
 import net.minecraft.server.v1_11_R1.ChatComponentText;
 import net.minecraft.server.v1_11_R1.ChatModifier;
@@ -24,23 +15,30 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.TreeMap;
+
 public class PropertiesEditor {
 	private static final String TAG = "PropEdit";
-
+	public boolean waiting = false;
 	private Player p;
 	private File f;
 	private Properties prop;
 	private Inventory inv;
 	private String currentK = null;
-	public boolean waiting = false;
 	private boolean canEdit;
 
 	public PropertiesEditor(Player a, File b) throws Exception {
 		p = a;
 		f = b;
 		prop = new Properties();
-		canEdit = Utils.isInSubDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(),
-				f.getParentFile()) || f.getParentFile().getName().equals("108.61.184.122:10210");
+		canEdit = Utils.isInSubDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(), f.getParentFile()) || f.getParentFile().getName().equals("108.61.184.122:10210");
 		FileInputStream fis = new FileInputStream(b);
 		prop.load(fis);
 		fis.close();
@@ -57,9 +55,15 @@ public class PropertiesEditor {
 			ItemMeta im = it.getItemMeta();
 			im.setDisplayName("\u00a7r" + n.getKey().toString());
 			String val = n.getValue().toString();
-			if (val.isEmpty()) val = "\u00a7o<not set>";
-			if (val.toLowerCase().equals("true")) col = "a";
-			if (val.toLowerCase().equals("false")) col = "c";
+			if (val.isEmpty()) {
+				val = "\u00a7o<not set>";
+			}
+			if (val.toLowerCase().equals("true")) {
+				col = "a";
+			}
+			if (val.toLowerCase().equals("false")) {
+				col = "c";
+			}
 			ArrayList<String> lore = new ArrayList<>();
 
 			for (String j : val.split("(?<=\\G.{35})")) {
@@ -74,9 +78,11 @@ public class PropertiesEditor {
 
 	public void show() {
 		this.a();
-		if (p.getOpenInventory() != null) p.closeInventory();
+		if (p.getOpenInventory() != null) {
+			p.closeInventory();
+		}
 		p.openInventory(inv);
-		AmrsatrioServer.props.put(p, this);
+		AmrsatrioServer.propEditInstances.put(p, this);
 		p.sendMessage("You can " + (canEdit ? "edit" : "only read") + " this file.");
 
 		if (canEdit) {
