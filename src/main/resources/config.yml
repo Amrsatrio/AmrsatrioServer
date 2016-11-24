@@ -1,0 +1,13 @@
+anon-players: false
+broadcast-exceptions: false
+chat-filter-caps: false
+disable-tnt: false
+lock-counter: 0
+lock-duration: 5
+lock-threshold: 5
+lock-until: 0
+password: ''
+show-damage-summary: true
+welcome-state: false
+welcome-subtitle: ''
+welcome-title: ''
