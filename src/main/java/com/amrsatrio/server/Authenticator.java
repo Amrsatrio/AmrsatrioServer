@@ -95,7 +95,7 @@ public class Authenticator {
 				}
 				afterFunction = after;
 				msg(theSender, "Type the password in the chat box. Retype the command to cancel.");
-				Utils.beepOnceNormalPitch(theSender, thePlugin);
+				Utils.beepOnceNormalPitch(theSender);
 				return true;
 			}
 		} catch (Throwable e) {

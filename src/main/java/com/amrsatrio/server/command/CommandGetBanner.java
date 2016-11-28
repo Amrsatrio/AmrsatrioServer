@@ -1,5 +1,7 @@
-package com.amrsatrio.server;
+package com.amrsatrio.server.command;
 
+import com.amrsatrio.server.AmrsatrioServer;
+import com.amrsatrio.server.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
@@ -34,7 +36,7 @@ public class CommandGetBanner implements CommandExecutor {
 	}
 
 	@SuppressWarnings("deprecation")
-	static class GetBannerGui {
+	public static class GetBannerGui {
 		public boolean switching = false;
 		private Player pl;
 		private boolean color = true;

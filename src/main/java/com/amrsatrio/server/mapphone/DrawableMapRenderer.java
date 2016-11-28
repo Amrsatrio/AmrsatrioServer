@@ -1,4 +1,4 @@
-package com.amrsatrio.server.mapgui;
+package com.amrsatrio.server.mapphone;
 
 import org.bukkit.entity.Player;
 import org.bukkit.map.MapCanvas;
@@ -10,25 +10,23 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 	//		private BufferedImage image = new BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB);
 	private MapView mapView;
 	private MapCanvas mapCanvas;
-	private Player player;
 	private MapFont font;
 
 	@Override
 	public void render(MapView mapview, MapCanvas mapcanvas, Player player) {
 		mapView = mapview;
 		mapCanvas = mapcanvas;
-		this.player = player;
 		rect(0, 0, 128, 128, false);
-		draw(mapView, mapCanvas, this.player);
-		//			Graphics graphics = image.getGraphics();
-//			graphics.clearRect(0, 0, image.getWidth(), image.getHeight());
-//			graphics.drawRect(0);
-//			draw(mapcanvas);
-//			graphics.setColor(Color.BLUE);
-//			graphics.drawRect(0, 0, image.getWidth() + 2, image.getHeight() + 2);
-//			mapcanvas.drawImage(0, 0, image);
-//			System.out.println("Map drawn");
-//			mapcanvas.setPixel(0, 0, (byte) 0);
+		draw(mapView, mapCanvas, player);
+		//Graphics graphics = image.getGraphics();
+		//graphics.clearRect(0, 0, image.getWidth(), image.getHeight());
+		//graphics.drawRect(0);
+		//draw(mapcanvas);
+		//graphics.setColor(Color.BLUE);
+		//graphics.drawRect(0, 0, image.getWidth() + 2, image.getHeight() + 2);
+		//mapcanvas.drawImage(0, 0, image);
+		//System.out.println("Map drawn");
+		//mapcanvas.setPixel(0, 0, (byte) 0);
 	}
 
 	protected abstract void draw(MapView mapview, MapCanvas mapcanvas, Player player); // {
@@ -42,16 +40,16 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 		}
 	}
 
-	protected void font(MapFont mapfont) {
-		font = mapfont;
-	}
-
-	protected MapFont font() {
+	protected MapFont getFont() {
 		return font;
 	}
 
+	protected void setFont(MapFont mapfont) {
+		font = mapfont;
+	}
+
 	protected void ctrStr(int x, int y, String text, boolean black) {
-		str(x - font().getWidth(text) / 2, y, text, black);
+		str(x - getFont().getWidth(text) / 2, y, text, black);
 	}
 
 	protected void str(int x, int y, String text, boolean black) {
@@ -144,7 +142,7 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 					l = k;
 
 				default:
-					j += font().getChar(c0).getWidth();
+					j += getFont().getChar(c0).getWidth();
 					break;
 			}
 

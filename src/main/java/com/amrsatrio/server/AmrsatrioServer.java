@@ -1,8 +1,12 @@
 package com.amrsatrio.server;
 
-import com.amrsatrio.server.bukkitcompat.BukkitCompat;
-import com.amrsatrio.server.bukkitcompat.Executor;
-import com.amrsatrio.server.mapgui.TestMapGui;
+import com.amrsatrio.server.bukkitcompat.MCMABukkitCompat;
+import com.amrsatrio.server.command.CommandBanAdvanced;
+import com.amrsatrio.server.command.CommandCoords;
+import com.amrsatrio.server.command.CommandGetBanner;
+import com.amrsatrio.server.command.CommandListFile;
+import com.amrsatrio.server.mapphone.PhoneMap;
+import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.mojang.authlib.GameProfile;
@@ -24,6 +28,8 @@ import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandException;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.v1_11_R1.CraftServer;
 import org.bukkit.craftbukkit.v1_11_R1.CraftWorld;
 import org.bukkit.craftbukkit.v1_11_R1.entity.*;
@@ -41,7 +47,6 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
-import org.bukkit.event.player.PlayerLoginEvent.Result;
 import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -54,13 +59,11 @@ import oshi.hardware.HardwareAbstractionLayer;
 import oshi.software.os.OSFileStore;
 import oshi.software.os.OperatingSystem;
 
+import javax.annotation.Nullable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
@@ -79,14 +82,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	public static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");
 	public static final Logger LOGGER = LogManager.getLogger(AmrsatrioServer.class.getSimpleName());
 	public static final String NMS_VERSION = Utils.getVersion2();
-	// private BukkitTask wsTask;
-	/*
-	 * public void onDisable() { System.out.println("Stopping WebServer...");
-	 * Bukkit.getScheduler().cancelTask(wsTask.getTaskId());
-	 * Bukkit.getScheduler(). }
-	 */
-//	private static final String IP_ADDRESS = Utils.getIPAddress(true);
-	private static final long BUILD_DATE = Utils.getBuildDate(AmrsatrioServer.class);
+	public static final String SUPPORTED_NMS_VERSION = "v1_11_R1";
 	private static final String[] PW_GRADES = {"NA", "Unacceptable", "Very weak", "Poor", "Average", "Good", "Very Good", "Excellent"};
 	private static final int MIN_PW_GRADE = 1;
 	private static final ScriptEngine JS_ENGINE = new ScriptEngineManager().getEngineByName("js");
@@ -96,8 +92,15 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	public static Map<Player, Authenticator> authenticatorInstances = new HashMap<>();
 	public static Map<Player, CommandGetBanner.GetBannerGui> getBannerInstances = new HashMap<>();
 	public static boolean verbose = false;
-	private final TestMapGui testMapGui = new TestMapGui();
-	private PrintStream ps;
+	private final PhoneMap phoneMap = new PhoneMap();
+	// private BukkitTask wsTask;
+	/*
+	 * public void onDisable() { System.out.println("Stopping WebServer...");
+	 * Bukkit.getScheduler().cancelTask(wsTask.getTaskId());
+	 * Bukkit.getScheduler(). }
+	 */
+//	private static final String IP_ADDRESS = Utils.getIPAddress(true);
+	private long buildDate;
 	//	private boolean anonMode = false;
 	private boolean banTNT = false;
 	private boolean chatFilterCaps = false;
@@ -128,108 +131,123 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
-	public static void msg(CommandSender a, String[] b, String c) {
-		for (String i : b) {
-			msg(a, i, c);
-		}
-	}
+//	public static void msg(CommandSender a, String[] b, String c) {
+//		for (String i : b) {
+//			msg(a, i, c);
+//		}
+//	}
 
 	public static void sandbox() {
 		throw new CommandException("This command is very risky, extra extra extra experimental, and a catastrophic failure will occur in this world upon executing this command. If you want to try this command, install this plugin outside this server.");
 	}
 
-	private static IChatBaseComponent testArrow(TippedArrow e) throws Exception {
-		// TODO This is very illegal, accessing a protected method!!
-		// TODO NMS Reflection, prepare for upgrade
-		Object nmsS1 = Utils.getHandle(e);
-		Method m = nmsS1.getClass().getDeclaredMethod("j");
-		m.setAccessible(true);
-		return ((net.minecraft.server.v1_11_R1.ItemStack) m.invoke(nmsS1)).C();
+	private static net.minecraft.server.v1_11_R1.ItemStack getTippedArrowItem(TippedArrow tippedarrow) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+		// TODO This is NMS reflection
+		Object object = Utils.getHandle(tippedarrow);
+		Method method = object.getClass().getDeclaredMethod("j");
+		method.setAccessible(true);
+		return (net.minecraft.server.v1_11_R1.ItemStack) method.invoke(object);
 	}
 
-	private static Collection<MinecraftKey> getAvailLootTables(CommandSender commandsender) {
-		List<MinecraftKey> set = new ArrayList<>();
-		set.addAll(LootTables.a());
+	private static Collection<MinecraftKey> getAvailableLootTables(CommandSender commandsender) {
+		List<MinecraftKey> list = new ArrayList<>();
+		list.addAll(LootTables.a());
 
 		if (!(commandsender instanceof Player)) {
-			return set;
+			return list;
 		}
 
 		File file = new File(new File(((Player) commandsender).getWorld().getWorldFolder(), "data"), "loot_tables");
 
 		if (!file.exists() || file.isFile()) {
-			return set;
+			return list;
 		}
 
 		for (File file1 : file.listFiles()) {
 			if (file1.isDirectory()) {
 				for (File file2 : file1.listFiles()) {
 					if (file2.isFile() && file2.getName().endsWith(".json")) {
-						set.add(new MinecraftKey(file1.getName(), file2.getName().substring(0, file2.getName().length() - ".json".length())));
+						list.add(new MinecraftKey(file1.getName(), file2.getName().substring(0, file2.getName().length() - ".json".length())));
 					}
 				}
 			}
 		}
 
-		return set;
+		return list;
 	}
 
-	public static void validateOp(CommandSender a) {
-		if (!a.isOp()) {
+	public static void validateOp(CommandSender commandsender) {
+		if (!commandsender.isOp()) {
 			throw new CommandException("You do not have sufficient privileges to execute this command.");
 		}
 	}
 
-	public static void validatePlayer(CommandSender a) {
-		if (!(a instanceof Player)) {
+	public static void validatePlayer(CommandSender commandsender) {
+		if (!(commandsender instanceof Player)) {
 			throw new CommandException("Only players can execute this command.");
 		}
 	}
 
-	@EventHandler
-	public void a(AsyncPlayerChatEvent a) throws NoSuchAlgorithmException {
-		Player p = a.getPlayer();
+	private static void deprecate(Player player, String s, String s1, String... astring) {
+		if (s.equals(s1)) {
+			String[] astring1 = new String[astring.length];
 
-		if (authenticatorInstances.containsKey(p)) {
-			authenticatorInstances.get(p).doChat(a);
-			authenticatorInstances.remove(p);
-			a.setCancelled(true);
-		} else if (propEditInstances.containsKey(p)) {
-			propEditInstances.get(p).a(a);
-		} else {
-			if (chatFilterCaps && countUppercaseLetters(a.getMessage()) > 4) {
-				a.setMessage(a.getMessage().toLowerCase());
-				msg(p, "Minimize your usage of uppercase letters!");
+			for (int i = 0; i < astring.length; i++) {
+				astring1[i] = ChatColor.BOLD + "/" + astring[i] + ChatColor.RESET;
 			}
-		}
 
-		a.setMessage(ChatColor.translateAlternateColorCodes('&', a.getMessage()));
+			msg(player, ChatColor.BOLD + "/" + s + ChatColor.RESET + " is now deprecated. Use " + Utils.joinNiceString(astring1) + " instead.");
+		}
 	}
 
 	@EventHandler
-	public void a(EntityDamageByEntityEvent a) {
-		if (a.getDamager().getType() != EntityType.PLAYER && !(a.getDamager() instanceof Projectile)) {
+	public void a(AsyncPlayerChatEvent asyncplayerchatevent) throws NoSuchAlgorithmException {
+		Player player = asyncplayerchatevent.getPlayer();
+
+		if (authenticatorInstances.containsKey(player)) {
+			authenticatorInstances.get(player).doChat(asyncplayerchatevent);
+			authenticatorInstances.remove(player);
+			asyncplayerchatevent.setCancelled(true);
+		} else if (propEditInstances.containsKey(player)) {
+			propEditInstances.get(player).a(asyncplayerchatevent);
+		} else {
+			if (chatFilterCaps && countUppercaseLetters(asyncplayerchatevent.getMessage()) > 4) {
+				asyncplayerchatevent.setMessage(asyncplayerchatevent.getMessage().toLowerCase());
+				msg(player, "Minimize your usage of uppercase letters!");
+			}
+		}
+
+		asyncplayerchatevent.setMessage(ChatColor.translateAlternateColorCodes('&', asyncplayerchatevent.getMessage()));
+	}
+
+	@EventHandler
+	public void a(EntityDamageByEntityEvent entitydamagebyentityevent) {
+		if (entitydamagebyentityevent.getDamager().getType() != EntityType.PLAYER && !(entitydamagebyentityevent.getDamager() instanceof Projectile) || !showDamageSummary) {
 			return;
 		}
+
 		try {
-			Entity dmg = a.getDamager() instanceof Projectile && ((Projectile) a.getDamager()).getShooter() != null && ((Projectile) a.getDamager()).getShooter() instanceof Entity ? (Entity) ((Projectile) a.getDamager()).getShooter() : a.getDamager();
-			//System.out.println(((Projectile) a.getDamager()).getShooter());
-			if (!(dmg instanceof Player)) {
+			Entity entity = entitydamagebyentityevent.getDamager() instanceof Projectile && ((Projectile) entitydamagebyentityevent.getDamager()).getShooter() != null && ((Projectile) entitydamagebyentityevent.getDamager()).getShooter() instanceof Entity ? (Entity) ((Projectile) entitydamagebyentityevent.getDamager()).getShooter() : entitydamagebyentityevent.getDamager();
+			//System.out.println(((Projectile) entitydamagebyentityevent.getDamager()).getShooter());
+
+			if (!(entity instanceof Player)) {
 				return;
 			}
-			//msg(dmg, ((CraftEntity) a.getEntity()).getHandle().toString());
-			IChatBaseComponent c = new ChatComponentText("\u00a7b<-- ").addSibling(damageSummary(new Damage(a), true)).addSibling(new ChatComponentText(" \u00a7b-->"));
-			((CraftPlayer) dmg).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(c, (byte) 2));
-		} catch (Throwable ex) {
-			Utils.broke(ex);
+
+			//msg(entity, ((CraftEntity) entitydamagebyentityevent.getEntity()).getHandle().toString());
+			IChatBaseComponent ichatbasecomponent = new ChatComponentText("\u00a7b<-- ").addSibling(damageSummary(new Damage(entitydamagebyentityevent), true)).addSibling(new ChatComponentText(" \u00a7b-->"));
+			Utils.actionBarWithoutReflection((Player) entity, ichatbasecomponent);
+		} catch (Throwable throwable) {
+			Utils.broke(throwable);
 		}
 	}
 
 	@EventHandler
-	public void a(SignChangeEvent a) {
+	public void a(SignChangeEvent signchangeevent) {
 		int i = 0;
-		for (String s : a.getLines()) {
-			a.setLine(i++, ChatColor.translateAlternateColorCodes('&', s));
+
+		for (String s : signchangeevent.getLines()) {
+			signchangeevent.setLine(i++, ChatColor.translateAlternateColorCodes('&', s));
 		}
 	}
 
@@ -259,13 +277,14 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	@EventHandler
-	public void a(InventoryClickEvent a) {
+	public void a(InventoryClickEvent inventoryclickevent) {
 		try {
-			Player player = (Player) a.getWhoClicked();
-			Inventory inventory = a.getInventory();
+			Player player = (Player) inventoryclickevent.getWhoClicked();
+			Inventory inventory = inventoryclickevent.getInventory();
+
 			if (inventory.getName().equals("Change your fly speed")) {
-				a.setCancelled(true);
-				if (a.getSlot() == 10) {
+				inventoryclickevent.setCancelled(true);
+				if (inventoryclickevent.getSlot() == 10) {
 					if (!(player.getFlySpeed() == 0.05f)) {
 						//p.playSound(p.getLocation(), "minecraft:block.note.pling", 3.0f, 1.4f);
 						player.setFlySpeed((player.getFlySpeed() * 10 - 0.05f * 10) / 10);
@@ -273,11 +292,13 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 						player.playSound(player.getLocation(), "minecraft:entity.item.break", 3.0f, 0.5f);
 					}
 				}
-				if (a.getSlot() == 11) {
+
+				if (inventoryclickevent.getSlot() == 11) {
 					//p.playSound(p.getLocation(), "minecraft:block.note.pling", 3.0f, 1.0f);
 					player.setFlySpeed(0.1f);
 				}
-				if (a.getSlot() == 12) {
+
+				if (inventoryclickevent.getSlot() == 12) {
 					if (!(player.getFlySpeed() == 1.0f)) {
 						//p.playSound(p.getLocation(), "minecraft:block.note.pling", 3.0f, 1.4f);
 						player.setFlySpeed((player.getFlySpeed() * 10 + 0.05f * 10) / 10);
@@ -285,20 +306,24 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 						player.playSound(player.getLocation(), "minecraft:entity.item.break", 3.0f, 0.5f);
 					}
 				}
-				ItemStack itemstack = a.getInventory().getItem(11);
+
+				ItemStack itemstack = inventoryclickevent.getInventory().getItem(11);
 				ItemMeta itemmeta = itemstack.getItemMeta();
 				itemmeta.setDisplayName("Your current fly speed: " + player.getFlySpeed());
 				itemstack.setItemMeta(itemmeta);
-				a.getInventory().setItem(11, itemstack);
+				inventoryclickevent.getInventory().setItem(11, itemstack);
 			}
+
 			if (propEditInstances.containsKey(player)) {
-				propEditInstances.get(player).a(a);
+				propEditInstances.get(player).a(inventoryclickevent);
 			}
+
 			if (CommandListFile.fileGuis.containsKey(player)) {
-				CommandListFile.fileGuis.get(player).handle(a);
+				CommandListFile.fileGuis.get(player).handle(inventoryclickevent);
 			}
+
 			if (getBannerInstances.containsKey(player)) {
-				getBannerInstances.get(player).handle(a);
+				getBannerInstances.get(player).handle(inventoryclickevent);
 			}
 		} catch (Throwable e) {
 			Utils.broke(e);
@@ -306,7 +331,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	private IInventory getLootTableInventory(Player player, String s) {
-		WorldServer worldserver = (WorldServer) Utils.getHandle(player.getWorld());
+		WorldServer worldserver = ((CraftWorld) player.getWorld()).getHandle();
 		IInventory iinventory = new InventorySubcontainer(s, true, 3 * 9);
 		LootTable loottable = worldserver.ak().a(new MinecraftKey(s));
 
@@ -321,12 +346,15 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	@EventHandler
 	public void a(InventoryCloseEvent inventorycloseevent) {
 		Player player = (Player) inventorycloseevent.getPlayer();
+
 		if (CommandListFile.fileGuis.containsKey(player)) {
 			CommandListFile.fileGuis.get(player).handleClose(inventorycloseevent);
 		}
+
 		if (propEditInstances.containsKey(player) && !propEditInstances.get(player).waiting) {
 			propEditInstances.remove(player);
 		}
+
 		if (getBannerInstances.containsKey(player) && !getBannerInstances.get(player).switching) {
 			getBannerInstances.remove(player);
 		}
@@ -345,8 +373,8 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	@EventHandler
-	public void a(PlayerChangedWorldEvent a) {
-		World world = a.getFrom();
+	public void a(PlayerChangedWorldEvent playerchangedworldevent) {
+		World world = playerchangedworldevent.getFrom();
 		List<World> list = getServer().getWorlds();
 
 		if (world.getPlayers().size() == 0 && world != list.get(0) && world != list.get(1) && world != list.get(2)) {
@@ -355,7 +383,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			getServer().getWorlds().remove(world);
 		}
 
-		Utils.updateHF(a.getPlayer());
+		Utils.updateHF(playerchangedworldevent.getPlayer());
 	}
 
 	@EventHandler
@@ -367,6 +395,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 //		if (commandSpecificPlayers.contains(label) && !ALLOWED_TO_KICK_BAN_DEOP.contains(playercommandpreprocessevent.getPlayer().getUniqueId())) {
 //		}
+		deprecate(playercommandpreprocessevent.getPlayer(), label, "changeworld", "tpworld", "tp");
 
 		if (PASSWORDED_COMMANDS.contains(label)) {
 			playercommandpreprocessevent.setCancelled(true);
@@ -418,8 +447,10 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	@EventHandler
-	public void a(PlayerLoginEvent playerloginevent) {
-		Bukkit.broadcastMessage(ChatColor.GRAY + String.format(playerloginevent.getResult() != Result.ALLOWED ? "Unfortunately, %s is refused to join the server" : "%s is joining the server", playerloginevent.getPlayer().getDisplayName()));
+	public void a(AsyncPlayerPreLoginEvent asyncplayerpreloginevent) {
+		PlayerPreLoginEvent.Result result = asyncplayerpreloginevent.getResult();
+		String s = asyncplayerpreloginevent.getName();
+		Bukkit.broadcastMessage(ChatColor.GRAY + (result != PlayerPreLoginEvent.Result.ALLOWED ? String.format("Unfortunately, %s is refused to log in because %s", s, Utils.getRefuseMessage(result)) : s + " is logging in..."));
 	}
 
 	@EventHandler
@@ -524,7 +555,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 			if (entitydamageevent.getCause() == DamageCause.PROJECTILE && ((Projectile) damager).getShooter() != null) {
 				Projectile prj = (Projectile) damager;
-				icbc.addSibling(new ChatMessage(" %s%s", ((CraftEntity) damager).getHandle().getScoreboardDisplayName(), damager instanceof TippedArrow ? new ChatComponentText(" ").addSibling(testArrow((TippedArrow) damager)) : ""));
+				icbc.addSibling(new ChatMessage(" %s%s", ((CraftEntity) damager).getHandle().getScoreboardDisplayName(), damager instanceof TippedArrow ? new ChatComponentText(" ").addSibling(getTippedArrowItem((TippedArrow) damager).C()) : ""));
 				//				if (damager instanceof TippedArrow)
 				//					System.out.println(((CraftTippedArrow) damager).getHandle().effects);
 
@@ -740,7 +771,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					msg(commandSender, "Broadcast plugin errors: " + Utils.disabledOrEnabled(verbose));
 					return true;
 
-				case "changeworld":
+				case "tpworld":
 					validatePlayer(commandSender);
 
 					if (astring.length == 0) {
@@ -752,12 +783,13 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					List<String> exworlds = Utils.getExistingWorlds();
 
 					if (!exworlds.contains(worldname)) {
-						msg(commandSender, "That world doesn't exist. Existing worlds are:");
-						msg(commandSender, Utils.joinNiceString(exworlds.toArray(new String[exworlds.size()])));
+						msg(commandSender, "That world doesn't exist. Existing worlds are:", "Teleporter");
+						Utils.printListNumbered(commandSender, exworlds);
+
 						return true;
 					}
 
-					msg(commandSender, "Teleporting you to world \u00a7l" + worldname);
+					msg(commandSender, "Teleporting you to world \u00a7l" + worldname, "Teleporter");
 					World w = getServer().getWorld(worldname);
 
 					if (w == null) {
@@ -766,7 +798,10 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					}
 
 					p.teleport(new Location(w, w.getSpawnLocation().getX(), w.getSpawnLocation().getY(), w.getSpawnLocation().getZ()));
-					msg(commandSender, "WARNING: This feature is very experimental. The scoreboard in " + worldbefore + " are mixed with the scoreboard in " + worldname + ". So don't try to teleport to lots-of-command-blocks maps!");
+//					msg(commandSender, "WARNING: This feature is very experimental. The scoreboard in " + worldbefore + " are mixed with the scoreboard in " + worldname + ". So don't try to teleport to lots-of-command-blocks maps!");
+					String s = "Teleported " + commandSender.getName() + " to world " + ChatColor.BOLD + worldname + ChatColor.RESET;
+					msg(commandSender, s, "Teleporter");
+					Command.broadcastCommandMessage(commandSender, s, false);
 					return true;
 
 				case "togglechatcaps":
@@ -1040,6 +1075,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					}
 
 					return true;
+
 				case "gen":
 					validatePlayer(commandSender);
 					validateOp(commandSender);
@@ -1169,12 +1205,13 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 						throw new WrongUsageException();
 					}
 					try {
-						testMapGui.input(TestMapGui.PhoneInput.valueOf(astring[0]), p);
+						phoneMap.sendInput(PhoneMap.PhoneInput.valueOf(astring[0].toUpperCase()), p);
 					} catch (IllegalArgumentException e) {
-						throw new CommandException("Invalid string - " + astring[0]);
+						throw new CommandException("Unknown input: " + astring[0]);
 					} catch (IllegalStateException e) {
 						throw new CommandException(e.getMessage());
 					}
+
 					return true;
 			}
 //			return WorldGen.onCommand(commandSender, b, c, astring);
@@ -1194,50 +1231,51 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
-	// @SuppressWarnings("unused")
 	public void onEnable() {
 		try {
 			LOGGER.info("NMS version: " + NMS_VERSION);
-			LOGGER.info("Plugin built on " + SDF.format(BUILD_DATE));
+			LOGGER.info("Plugin built on " + SDF.format(buildDate = getBuildDate()));
 
-			if (!"v1_11_R1".equals(NMS_VERSION)) {
-				throw new RuntimeException("This plugin does not support your version of Minecraft! You have to tell me to update this plugin, or downgrade to v1_11_R1.");
+			if (!SUPPORTED_NMS_VERSION.equals(NMS_VERSION)) {
+				throw new RuntimeException(String.format("This plugin does not support your version of Minecraft! You have to tell me to update this plugin in order to support %s, or change the server into %s.", NMS_VERSION, SUPPORTED_NMS_VERSION));
 			}
 
 			saveDefaultConfig();
 			Bukkit.getPluginManager().registerEvents(this, this);
-//			anonMode = getConfig().getBoolean("anon");
+
+			// Set toggleables
+			// anonMode = getConfig().getBoolean("anon");
 			banTNT = getConfig().getBoolean("disable-tnt");
 			chatFilterCaps = getConfig().getBoolean("chat-filter-caps");
 			showDamageSummary = getConfig().getBoolean("show-damage-summary");
-			// webserver, currently very broken
+
+			// TODO Webserver, currently very broken
 			/*
 			 * wsTask = Bukkit.getScheduler().runTaskAsynchronously(this, new
 			 * Runnable() { public void run() { WebServer ws = new WebServer();
 			 * ws.start(); } });
 			 */
-			testMapGui.init();
 
+			phoneMap.init();
+
+			// Register separate class commands
 			getCommand("getbanner").setExecutor(new CommandGetBanner());
 			getCommand("listfile").setExecutor(new CommandListFile());
 			getCommand("blockinfo").setExecutor(new CommandCoords());
 			getCommand("banadv").setExecutor(new CommandBanAdvanced());
-			//TODO afk ticker
-//			ticker = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this, 0, 20);
-			// faking MCMA compat
-			this.ps = new PrintStream(new FileOutputStream(FileDescriptor.err));
-			Bukkit.getPluginManager().registerEvents(new BukkitCompat(), this);
-			/*
-			 * if (false) { getCommand("tell").setExecutor(new Executor(ps));
-			 * getCommand("kickreason").setExecutor(new Executor(ps)); }
-			 */
-			getCommand("svping").setExecutor(new Executor(ps));
-			getCommand("pushcommand").setExecutor(new Executor(ps));
-			this.ps.println("0 0 [MCMAX] MCMACOMPAT R22A");
-//			WorldGen.onEnable(this);
+
+			// TODO afk ticker, broken
+			// ticker = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this, 0, 20);
+
+			// Initialize MCMA Bukkit compatibility
+			new MCMABukkitCompat(this).init();
+
+			// WorldGen.onEnable(this);
+
+			// Client brand checker
 			Bukkit.getMessenger().registerIncomingPluginChannel(this, "MC|Brand", this);
 		} catch (Throwable e) {
-			LOGGER.error("Caught an error when enabling this plugin, this plugin will be disabled!", e);
+			LOGGER.error("Caught an error while enabling this plugin, so this will be disabled!", e);
 			Bukkit.getPluginManager().disablePlugin(this);
 		}
 	}
@@ -1245,10 +1283,20 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	public List<String> onTabComplete(CommandSender commandsender, Command command, String s, String[] astring) {
 		try {
 			switch (command.getName().toLowerCase()) {
-				case "changeworld":
+				case "tpworld":
 					return CommandAbstract.a(astring, Utils.getExistingWorlds());
+
 				case "loottable":
-					return astring.length == 1 ? CommandAbstract.a(astring, getAvailLootTables(commandsender)) : astring.length == 2 ? CommandAbstract.a(astring, Arrays.asList("true", "false")) : Collections.<String>emptyList();
+					return astring.length == 1 ? CommandAbstract.a(astring, getAvailableLootTables(commandsender)) : astring.length == 2 ? CommandAbstract.a(astring, Arrays.asList("true", "false")) : Collections.<String>emptyList();
+
+				case "inputphone":
+					return astring.length == 1 ? CommandAbstract.a(astring, Lists.transform(Arrays.asList(PhoneMap.PhoneInput.values()), new Function<PhoneMap.PhoneInput, String>() {
+						@Nullable
+						@Override
+						public String apply(@Nullable PhoneMap.PhoneInput phoneInput) {
+							return phoneInput.toString().toLowerCase();
+						}
+					})) : Collections.<String>emptyList();
 			}
 		} catch (Throwable e) {
 			Utils.broke(e);
@@ -1275,21 +1323,21 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	@EventHandler
-	public void onDamage(EntityDamageEvent a) {
-		if (a.getEntityType() != EntityType.PLAYER || !showDamageSummary) {
+	public void onDamage(EntityDamageEvent entitydamageevent) {
+		if (entitydamageevent.getEntityType() != EntityType.PLAYER || !showDamageSummary) {
 			return;
 		}
 
-		Player e = (Player) a.getEntity();
-		List<Damage> toSet = playerDamages.containsKey(e) ? playerDamages.get(e) : new ArrayList<Damage>();
-		Damage d = new Damage(a);
-		toSet.add(d);
-		playerDamages.put(e, toSet);
+		Player entity = (Player) entitydamageevent.getEntity();
+		List<Damage> list = playerDamages.containsKey(entity) ? playerDamages.get(entity) : new ArrayList<Damage>();
+		Damage damage = new Damage(entitydamageevent);
+		list.add(damage);
+		playerDamages.put(entity, list);
 
 		try {
-			((CraftPlayer) a.getEntity()).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(damageSummary(d), (byte) 2));
-		} catch (Throwable ex) {
-			Utils.broke(ex);
+			((CraftPlayer) entitydamageevent.getEntity()).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(damageSummary(damage), (byte) 2));
+		} catch (Throwable throwable) {
+			Utils.broke(throwable);
 		}
 	}
 
@@ -1330,15 +1378,23 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 	@Override
 	public void onPluginMessageReceived(String s, Player player, byte[] bytes) {
-		//Bukkit.broadcastMessage(s);
-		//Bukkit.broadcastMessage(player.toString());
-
 		if (s.equals("MC|Brand")) {
 			String brand = new String(bytes).substring(1);
 
 			if (!brand.equals("vanilla")) {
 				player.sendMessage(ChatColor.GRAY + "We've detected that you're using a modded version of Minecraft, which is \"" + brand + "\". You're allowed to use the mods as long as you play fair!");
 			}
+		}
+	}
+
+
+	public long getBuildDate() {
+		try {
+			FileConfiguration data = YamlConfiguration.loadConfiguration(getResource("plugin.yml"));
+			return new SimpleDateFormat("yyyyMMdd-HHmm").parse(data.getString("build-date")).getTime();
+		} catch (Exception e) {
+			AmrsatrioServer.LOGGER.warn("Can't get build date", e);
+			return 0;
 		}
 	}
 

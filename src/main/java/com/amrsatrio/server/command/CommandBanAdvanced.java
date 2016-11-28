@@ -1,4 +1,4 @@
-package com.amrsatrio.server;
+package com.amrsatrio.server.command;
 
 import org.apache.commons.cli.*;
 import org.bukkit.BanList;

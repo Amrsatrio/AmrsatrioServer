@@ -1,5 +1,7 @@
-package com.amrsatrio.server;
+package com.amrsatrio.server.command;
 
+import com.amrsatrio.server.AmrsatrioServer;
+import com.amrsatrio.server.Utils;
 import org.apache.commons.io.FilenameUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;

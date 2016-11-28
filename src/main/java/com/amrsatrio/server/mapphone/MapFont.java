@@ -3,7 +3,7 @@
 // (powered by Fernflower decompiler)
 //
 
-package com.amrsatrio.server.mapgui;
+package com.amrsatrio.server.mapphone;
 
 import java.util.HashMap;
 

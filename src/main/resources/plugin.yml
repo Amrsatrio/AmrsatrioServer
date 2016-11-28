@@ -1,9 +1,10 @@
 name: AmrsatrioServer
 main: com.amrsatrio.server.AmrsatrioServer
-version: 1.0.565
+version: 1.0.593
 authors:
   - Amrsatrio
   - ammar18
+build-date: ${timestamp}
 commands:
 #  anon:
 #    description: Mask players with their IP address.
@@ -17,10 +18,10 @@ commands:
     description: Toggles prevention of TNT explosions and TNT removals.
     usage: /<command>
     aliases: bantnt
-  changeworld:
+  tpworld:
     description: Teleports you to another world. Highly experimental.
     usage: /<command> <worldName...>
-    aliases: cw
+    aliases: changeworld, tpw
   togglechatcaps:
     description: Toggles lowercasing chat messages when there's too much capital letters. This feature doesn't work correctly in some conditions.
     usage: /<command>

@@ -15,6 +15,7 @@ import org.bukkit.craftbukkit.v1_11_R1.command.CraftBlockCommandSender;
 import org.bukkit.craftbukkit.v1_11_R1.command.ProxiedNativeCommandSender;
 import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerPreLoginEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -97,7 +98,9 @@ public class Utils {
 		}
 	}
 
+	@Deprecated
 	public static void actionBar(Player a, String b) {
+		//TODO This is NMS reflection
 		try {
 			Class<?> icbc = getNMSClass("IChatBaseComponent");
 			Object handle = getHandle(a);
@@ -109,6 +112,14 @@ public class Utils {
 		} catch (Throwable e) {
 			e.printStackTrace();
 		}
+	}
+
+	public static void actionBarWithoutReflection(Player player, IChatBaseComponent ichatbasecomponent) {
+		((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(ichatbasecomponent, (byte) 2));
+	}
+
+	public static void actionBarWithoutReflection(Player player, String s) {
+		actionBarWithoutReflection(player, new ChatComponentText(s));
 	}
 
 	public static String actionBoxJson(String a, String b) {
@@ -127,10 +138,11 @@ public class Utils {
 		return String.format("{\"text\":\"[%s]\",\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"}}%s", a, c, b, d ? "{\"text\":\" \"}" : "");
 	}
 
-	public static void beepOnceNormalPitch(CommandSender a, JavaPlugin c) {
+	public static void beepOnceNormalPitch(CommandSender a) {
 		if (!(a instanceof Player)) {
 			return;
 		}
+
 		Player asPlayer = (Player) a;
 		asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1);
 	}
@@ -370,17 +382,6 @@ public class Utils {
 		return "";
 	}
 
-	public static long getBuildDate(Class<?> cl) {
-		try {
-			File f = new File(cl.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
-//			BasicFileAttributes attrs = Files.readAttributes(f.toPath(), BasicFileAttributes.class);
-//			return attrs.creationTime().toMillis();
-			return f.lastModified();
-		} catch (Exception e) {
-			return 0;
-		}
-	}
-
 	public static String disabledOrEnabled(boolean flag) {
 		return flag ? "\u00a7aEnabled" : "\u00a7cDisabled";
 	}
@@ -503,6 +504,7 @@ public class Utils {
 		return new File(curdir + separator + file);
 	}
 
+	@Deprecated
 	public static Object getHandle(Object obj) {
 		try {
 			return getMethod("getHandle", obj.getClass()).invoke(obj);
@@ -556,19 +558,27 @@ public class Utils {
 	}
 
 	public static String joinNiceString(Object[] a) {
-		StringBuilder v0 = new StringBuilder();
+		return joinNiceString(a, "and");
+	}
+
+	public static String joinNiceString(Object[] a, String s) {
+		StringBuilder stringbuilder = new StringBuilder();
+
 		for (int i = 0; i < a.length; ++i) {
-			String s = a[i].toString();
+			String s1 = a[i].toString();
+
 			if (i > 0) {
 				if (i == a.length - 1) {
-					v0.append((a.length > 2 ? "," : "") + " and ");
+					stringbuilder.append(a.length > 2 ? "," : "").append(" ").append(s).append(" ");
 				} else {
-					v0.append(", ");
+					stringbuilder.append(", ");
 				}
 			}
-			v0.append(s);
+
+			stringbuilder.append(s1);
 		}
-		return v0.toString();
+
+		return stringbuilder.toString();
 	}
 
 	public static String joinNiceStringFromCollection(Collection<String> strings) {
@@ -656,7 +666,7 @@ public class Utils {
 			bukkitscheduler.scheduleSyncDelayedTask(javaplugin, new Runnable() {
 				@Override
 				public void run() {
-					actionBar(player, v1.substring(i1, i + i1));
+					actionBarWithoutReflection(player, v1.substring(i1, i + i1));
 				}
 			}, j * k);
 		}
@@ -694,11 +704,11 @@ public class Utils {
 		throw new IllegalArgumentException("Cannot make " + sender + " a vanilla command listener");
 	}
 
-	public static void tripleBeepSamePitch(CommandSender a, JavaPlugin c) {
-		if (!(a instanceof Player)) {
+	public static void tripleBeepSamePitch(CommandSender commandsender, JavaPlugin javaplugin) {
+		if (!(commandsender instanceof Player)) {
 			return;
 		}
-		final Player asPlayer = (Player) a;
+		final Player asPlayer = (Player) commandsender;
 		Runnable sound = new Runnable() {
 			@Override
 			public void run() {
@@ -706,8 +716,8 @@ public class Utils {
 			}
 		};
 		sound.run();
-		Bukkit.getScheduler().scheduleSyncDelayedTask(c, sound, 4L);
-		Bukkit.getScheduler().scheduleSyncDelayedTask(c, sound, 8L);
+		Bukkit.getScheduler().scheduleSyncDelayedTask(javaplugin, sound, 4L);
+		Bukkit.getScheduler().scheduleSyncDelayedTask(javaplugin, sound, 8L);
 	}
 
 	public static void extractZip(File zipFile, File destDir) throws Exception {
@@ -810,6 +820,28 @@ public class Utils {
 	private static void copy(InputStream in, File file) throws IOException {
 		try (OutputStream out = new FileOutputStream(file)) {
 			copy(in, out);
+		}
+	}
+
+	public static String getRefuseMessage(PlayerPreLoginEvent.Result result) {
+		switch (result) {
+			case ALLOWED: // very silly
+				return "that player is allowed to log in";
+			case KICK_FULL:
+				return "this server is full";
+			case KICK_BANNED:
+				return "that player is banned";
+			case KICK_WHITELIST:
+				return "that player is out of the whitelist";
+			default:
+			case KICK_OTHER:
+				return "of an unknown reason";
+		}
+	}
+
+	public static void printListNumbered(CommandSender commandSender, List<String> list) {
+		for (int i = 0; i < list.size(); i++) {
+			commandSender.sendMessage((i + 1) + "." + list.get(i));
 		}
 	}
 
