@@ -1,8 +1,6 @@
 package com.amrsatrio.server.mapphone;
 
 public class NokiaFont extends MapFont {
-	public static final NokiaFont BOLD_SMALL = new NokiaFont(false, false, true);
-	public static final NokiaFont SMALL = new NokiaFont(false, false, false);
 	//	private static final int[][] FONT_DATA_BLD_LRG = new int[][]{
 //			{0, 0b11, 0b11, 0b11, 0b01, 0b01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // '
 //			{0, 0, 0b0111110, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b0111110, 0, 0, 0}, // 0
@@ -269,6 +267,8 @@ public class NokiaFont extends MapFont {
 			{0, 0, 0, 0, 0b10110, 0b01101, 0, 0, 0, 0, 0, 0}, // ~
 	};
 	private static final String FONT_CHARS = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz";
+	public static final NokiaFont BOLD_SMALL = new NokiaFont(false, false, true);
+	public static final NokiaFont SMALL = new NokiaFont(false, false, false);
 	private final int height;
 	private final boolean large;
 	private final boolean bold;

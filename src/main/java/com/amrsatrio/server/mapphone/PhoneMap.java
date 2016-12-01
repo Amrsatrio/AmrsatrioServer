@@ -40,7 +40,7 @@ public class PhoneMap extends DrawableMapRenderer {
 		}
 
 		mapView.addRenderer(this);
-		System.out.println(mapView.getId());
+		AmrsatrioServer.LOGGER.debug("Phone map ID: " + mapView.getId());
 	}
 
 	@Override

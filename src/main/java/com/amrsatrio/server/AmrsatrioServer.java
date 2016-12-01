@@ -88,6 +88,13 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	private static final ScriptEngine JS_ENGINE = new ScriptEngineManager().getEngineByName("js");
 	private static final List<UUID> ALLOWED_TO_KICK_BAN_DEOP = Lists.newArrayList(UUID.fromString("77a3d6a0-49d5-45eb-bcb8-48dc26303c43"), UUID.fromString("beaa6a95-f065-4b75-883f-894488ec133e"));
 	private static final List<String> PASSWORDED_COMMANDS = Lists.newArrayList("password", "anon", "togglebantnt", "togglechatcaps", "restart", "stop", "toggleverbose"); // , "ban", "kick", "op", "deop"
+	private static final Function<GameProfile, IChatBaseComponent> GAME_PROFILE_TO_NAME_FUNCTION = new Function<GameProfile, IChatBaseComponent>() {
+		@Nullable
+		@Override
+		public IChatBaseComponent apply(@Nullable GameProfile gameProfile) {
+			return new ChatComponentText(gameProfile.getName()).setChatModifier(new ChatModifier().setChatHoverable(new ChatHoverable(ChatHoverable.EnumHoverAction.SHOW_TEXT, new ChatComponentText(gameProfile.getName() + "\n" + gameProfile.getId()))));
+		}
+	};
 	public static Map<Player, PropertiesEditor> propEditInstances = new HashMap<>();
 	public static Map<Player, Authenticator> authenticatorInstances = new HashMap<>();
 	public static Map<Player, CommandGetBanner.GetBannerGui> getBannerInstances = new HashMap<>();
@@ -107,8 +114,8 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	private boolean showDamageSummary = true;
 	private int ticker;
 	private Map<Player, List<Damage>> playerDamages = new HashMap<>();
-	private Map<InetAddress, String> playerAndIP = new HashMap<>();
 	private boolean isZipping;
+	private PingList pingList;
 
 	public static void bcm(String a) {
 		Bukkit.broadcastMessage(String.format(SERVER_HEADER, "Server") + a);
@@ -443,7 +450,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			welcomeTitle(player);
 		}
 
-		playerAndIP.put(player.getAddress().getAddress(), player.getName());
+		pingList.addEntry(player);
 	}
 
 	@EventHandler
@@ -481,21 +488,32 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	@EventHandler
 	public void a(ServerListPingEvent serverlistpingevent) {
 		try {
-			/*ArrayList<String> names = new ArrayList<>();
-			for (Player i : Bukkit.getOnlinePlayers())
-				names.add(i.getDisplayName());
-			Collections.sort(names);
-			if (names.size() > 0)*/
-			//serverlistpingevent.setMotd(new Random().nextBoolean() ? serverlistpingevent.getMotd() : "No MOTD? Cool!");
+			pingList.addEntry(serverlistpingevent);
+			IChatBaseComponent ichatbasecomponent = new ChatComponentText("");
+			PingList.PingEntry pingentry = pingList.get(serverlistpingevent.getAddress());
+			IChatBaseComponent players = getPingedPlayerNames(pingentry);
+
+			if (players != null) {
+				ichatbasecomponent.addSibling(players);
+			}
+
 			InetAddress inetaddress = serverlistpingevent.getAddress();
-			String player = playerAndIP.get(inetaddress);
 			String s = inetaddress.getHostAddress();
-			IChatBaseComponent component1 = new ChatComponentText(s).setChatModifier(new ChatModifier().setChatClickable(new ChatClickable(ChatClickable.EnumClickAction.OPEN_URL, "http://whatismyipaddress.com/ip/" + s)).setChatHoverable(new ChatHoverable(ChatHoverable.EnumHoverAction.SHOW_TEXT, new ChatComponentText("Click for more info on this IP address"))));
-			IChatBaseComponent component = new ChatMessage("%s%s pinged the server", player == null ? "" : player + "@", component1).setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY));
-			((CraftServer) getServer()).getHandle().sendMessage(component);
+			ichatbasecomponent.addSibling(new ChatMessage("%s%s pinged the server for the %s time today", players == null ? "" : "@", new ChatComponentText(s).setChatModifier(new ChatModifier().setChatClickable(new ChatClickable(ChatClickable.EnumClickAction.OPEN_URL, "http://whatismyipaddress.com/ip/" + s)).setChatHoverable(new ChatHoverable(ChatHoverable.EnumHoverAction.SHOW_TEXT, new ChatComponentText("Click for more info on this IP address")))), Utils.ordinal(pingentry.getHowManyTimesPingedToday())).setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY)));
+			((CraftServer) getServer()).getHandle().sendMessage(ichatbasecomponent);
 		} catch (Throwable e) {
-			LOGGER.warn("Unexpected exception occurred in ping event", e);
+			LOGGER.warn("Unexpected error occurred in ping event", e);
 		}
+	}
+
+	private IChatBaseComponent getPingedPlayerNames(PingList.PingEntry pingentry) {
+		if (pingentry == null || pingentry.names.isEmpty()) {
+			return null;
+		}
+
+		String[] astring = new String[pingentry.names.size()];
+		Arrays.fill(astring, "%s");
+		return new ChatMessage(Utils.joinNiceString(astring, "or"), Lists.transform(pingentry.names, GAME_PROFILE_TO_NAME_FUNCTION).toArray(new IChatBaseComponent[pingentry.names.size()]));
 	}
 
 	private void changePassword(CommandSender commandsender, String[] astring) throws NoSuchAlgorithmException {
@@ -529,7 +547,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
-	private int countUppercaseLetters(String s) {
+	private static int countUppercaseLetters(String s) {
 		int i = 0;
 
 		for (char c : s.toCharArray()) {
@@ -1243,6 +1261,14 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			saveDefaultConfig();
 			Bukkit.getPluginManager().registerEvents(this, this);
 
+			pingList = new PingList(new File(getDataFolder(), "ping-history.json"));
+
+			try {
+				pingList.load();
+			} catch (Exception e) {
+				LOGGER.warn("Could not load ping-history.json", e);
+			}
+
 			// Set toggleables
 			// anonMode = getConfig().getBoolean("anon");
 			banTNT = getConfig().getBoolean("disable-tnt");
@@ -1391,9 +1417,9 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	public long getBuildDate() {
 		try {
 			FileConfiguration data = YamlConfiguration.loadConfiguration(getResource("plugin.yml"));
-			return new SimpleDateFormat("yyyyMMdd-HHmm").parse(data.getString("build-date")).getTime();
+			return new SimpleDateFormat("yyyyMMdd-HHmmss").parse(data.getString("build-date")).getTime();
 		} catch (Exception e) {
-			AmrsatrioServer.LOGGER.warn("Can't get build date", e);
+			AmrsatrioServer.LOGGER.warn("Can't get build date, returning 0", e);
 			return 0;
 		}
 	}

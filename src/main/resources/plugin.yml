@@ -1,6 +1,6 @@
 name: AmrsatrioServer
 main: com.amrsatrio.server.AmrsatrioServer
-version: 1.0.593
+version: 1.0.642
 authors:
   - Amrsatrio
   - ammar18
