@@ -18,18 +18,18 @@ public class MCMABukkitCompat implements Listener {
 	private PrintStream c;
 
 	public MCMABukkitCompat(JavaPlugin javaplugin) {
-		this.a = Logger.getLogger("Minecraft");
-		this.b = javaplugin;
-		this.c = new PrintStream(new FileOutputStream(FileDescriptor.err));
+		a = Logger.getLogger("Minecraft");
+		b = javaplugin;
+		c = new PrintStream(new FileOutputStream(FileDescriptor.err));
 	}
 
 	public void init() {
 //		this.b.getCommand("tell").setExecutor(new Executor(c));
 //		this.b.getCommand("kickreason").setExecutor(new Executor(c));
-		this.b.getCommand("svping").setExecutor(new Executor(c));
-		this.b.getCommand("pushcommand").setExecutor(new Executor(c));
-		Bukkit.getPluginManager().registerEvents(this, this.b);
-		this.c.println("0 0 [MCMAX] MCMACOMPAT R22A");
+		b.getCommand("svping").setExecutor(new Executor(c));
+		b.getCommand("pushcommand").setExecutor(new Executor(c));
+		Bukkit.getPluginManager().registerEvents(this, b);
+		c.println("0 0 [MCMAX] MCMACOMPAT R22A");
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -49,13 +49,13 @@ public class MCMABukkitCompat implements Listener {
 			if (s2.equals(s1)) {
 				if (Bukkit.getServer().getPluginCommand(s2) != null) {
 					String pName = Bukkit.getServer().getPluginCommand(s2).getPlugin().getDescription().getFullName();
-					this.a.info("Command '" + s2 + "' conflicts with plugin '" + pName + "', McMyAdmin will not receive this command. Command will be sent to '" + pName + "' instead.");
+					a.info("Command '" + s2 + "' conflicts with plugin '" + pName + "', McMyAdmin will not receive this command. Command will be sent to '" + pName + "' instead.");
 					break;
 				}
 				if (playercommandpreprocessevent.getPlayer().isOp()) {
-					this.a.info(playercommandpreprocessevent.getPlayer().getName() + " issued server command: " + s);
+					a.info(playercommandpreprocessevent.getPlayer().getName() + " issued server command: " + s);
 				} else {
-					this.a.info(playercommandpreprocessevent.getPlayer().getName() + " tried command: " + s);
+					a.info(playercommandpreprocessevent.getPlayer().getName() + " tried command: " + s);
 				}
 				playercommandpreprocessevent.setCancelled(true);
 				break;

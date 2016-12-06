@@ -1,16 +1,29 @@
 package com.amrsatrio.server;
 
+import com.amrsatrio.server.Downloader.DownloadListener;
+import com.amrsatrio.server.PingList.PingEntry;
 import com.amrsatrio.server.bukkitcompat.MCMABukkitCompat;
 import com.amrsatrio.server.command.CommandBanAdvanced;
-import com.amrsatrio.server.command.CommandCoords;
+import com.amrsatrio.server.command.CommandBlockInfo;
 import com.amrsatrio.server.command.CommandGetBanner;
+import com.amrsatrio.server.command.CommandGetBanner.GetBannerGui;
 import com.amrsatrio.server.command.CommandListFile;
 import com.amrsatrio.server.mapphone.PhoneMap;
+import com.amrsatrio.server.mapphone.PhoneMap.PhoneInput;
+import com.amrsatrio.server.nmscommand.CommandTestSelector;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.v1_11_R1.*;
+import net.minecraft.server.v1_11_R1.ChatClickable.EnumClickAction;
+import net.minecraft.server.v1_11_R1.ChatHoverable.EnumHoverAction;
+import net.minecraft.server.v1_11_R1.LootTableInfo.a;
+import net.minecraft.server.v1_11_R1.WorldGenRegistration.WorldGenJungleTemple;
+import net.minecraft.server.v1_11_R1.WorldGenRegistration.WorldGenPyramidPiece;
+import net.minecraft.server.v1_11_R1.WorldGenRegistration.WorldGenWitchHut;
+import net.minecraft.server.v1_11_R1.WorldGenRegistration.b;
+import net.minecraft.server.v1_11_R1.WorldGenVillagePieces.WorldGenVillageLight;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
@@ -32,6 +45,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.v1_11_R1.CraftServer;
 import org.bukkit.craftbukkit.v1_11_R1.CraftWorld;
+import org.bukkit.craftbukkit.v1_11_R1.command.VanillaCommandWrapper;
 import org.bukkit.craftbukkit.v1_11_R1.entity.*;
 import org.bukkit.craftbukkit.v1_11_R1.inventory.CraftInventory;
 import org.bukkit.entity.*;
@@ -47,7 +61,10 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.event.player.PlayerPreLoginEvent.Result;
 import org.bukkit.event.server.ServerListPingEvent;
+import org.bukkit.event.world.WorldLoadEvent;
+import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -77,8 +94,8 @@ import java.util.*;
 public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessageListener {
 	//	public static final boolean DEBUG = false;
 	public static final DecimalFormat HEALTH_DECIMAL_FORMAT = new DecimalFormat("#.##");
-	public static final String SH_MSG_COLOR = "\u00a77";
-	public static final String SERVER_HEADER = "\u00a79%s> " + SH_MSG_COLOR;
+	public static final ChatColor SH_MSG_COLOR = ChatColor.GRAY;
+	public static final String SERVER_HEADER = ChatColor.BLUE + "%s> " + SH_MSG_COLOR;
 	public static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");
 	public static final Logger LOGGER = LogManager.getLogger(AmrsatrioServer.class.getSimpleName());
 	public static final String NMS_VERSION = Utils.getVersion2();
@@ -91,13 +108,13 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	private static final Function<GameProfile, IChatBaseComponent> GAME_PROFILE_TO_NAME_FUNCTION = new Function<GameProfile, IChatBaseComponent>() {
 		@Nullable
 		@Override
-		public IChatBaseComponent apply(@Nullable GameProfile gameProfile) {
-			return new ChatComponentText(gameProfile.getName()).setChatModifier(new ChatModifier().setChatHoverable(new ChatHoverable(ChatHoverable.EnumHoverAction.SHOW_TEXT, new ChatComponentText(gameProfile.getName() + "\n" + gameProfile.getId()))));
+		public IChatBaseComponent apply(@Nullable GameProfile gameprofile) {
+			return new ChatComponentText(gameprofile.getName()).setChatModifier(new ChatModifier().setChatHoverable(new ChatHoverable(EnumHoverAction.SHOW_TEXT, new ChatComponentText(gameprofile.getName() + "\n" + ChatColor.GRAY + gameprofile.getId()))).setChatClickable(new ChatClickable(EnumClickAction.SUGGEST_COMMAND, gameprofile.getId().toString())));
 		}
 	};
 	public static Map<Player, PropertiesEditor> propEditInstances = new HashMap<>();
 	public static Map<Player, Authenticator> authenticatorInstances = new HashMap<>();
-	public static Map<Player, CommandGetBanner.GetBannerGui> getBannerInstances = new HashMap<>();
+	public static Map<Player, GetBannerGui> getBannerInstances = new HashMap<>();
 	public static boolean verbose = false;
 	private final PhoneMap phoneMap = new PhoneMap();
 	// private BukkitTask wsTask;
@@ -200,10 +217,10 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			String[] astring1 = new String[astring.length];
 
 			for (int i = 0; i < astring.length; i++) {
-				astring1[i] = ChatColor.BOLD + "/" + astring[i] + ChatColor.RESET;
+				astring1[i] = ChatColor.BOLD + "/" + astring[i] + ChatColor.RESET + SH_MSG_COLOR;
 			}
 
-			msg(player, ChatColor.BOLD + "/" + s + ChatColor.RESET + " is now deprecated. Use " + Utils.joinNiceString(astring1) + " instead.");
+			msg(player, ChatColor.BOLD + "/" + s + ChatColor.RESET + SH_MSG_COLOR + " is now deprecated. Use " + Utils.joinNiceString(astring1, "or") + " instead.");
 		}
 	}
 
@@ -346,7 +363,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			throw new CommandException("Non-existent loot table " + s);
 		}
 
-		loottable.a(iinventory, new Random(), new LootTableInfo.a(worldserver).a());
+		loottable.a(iinventory, new Random(), new a(worldserver).a());
 		return iinventory;
 	}
 
@@ -385,7 +402,6 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		List<World> list = getServer().getWorlds();
 
 		if (world.getPlayers().size() == 0 && world != list.get(0) && world != list.get(1) && world != list.get(2)) {
-			Bukkit.broadcastMessage(ChatColor.GRAY + "World " + ChatColor.BOLD + world.getName() + ChatColor.RESET + ChatColor.GRAY + " is being unloaded");
 			getServer().unloadWorld(world.getName(), true);
 			getServer().getWorlds().remove(world);
 		}
@@ -402,11 +418,12 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 //		if (commandSpecificPlayers.contains(label) && !ALLOWED_TO_KICK_BAN_DEOP.contains(playercommandpreprocessevent.getPlayer().getUniqueId())) {
 //		}
-		deprecate(playercommandpreprocessevent.getPlayer(), label, "changeworld", "tpworld", "tp");
+		deprecate(playercommandpreprocessevent.getPlayer(), label, "changeworld", "tpworld", "tpw");
 
 		if (PASSWORDED_COMMANDS.contains(label)) {
 			playercommandpreprocessevent.setCancelled(true);
 			makeAnAuth(playercommandpreprocessevent.getPlayer(), astring, new Runnable() {
+				@Override
 				public void run() {
 					Bukkit.dispatchCommand(playercommandpreprocessevent.getPlayer(), s);
 				}
@@ -455,9 +472,9 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 	@EventHandler
 	public void a(AsyncPlayerPreLoginEvent asyncplayerpreloginevent) {
-		PlayerPreLoginEvent.Result result = asyncplayerpreloginevent.getResult();
+		Result result = asyncplayerpreloginevent.getResult();
 		String s = asyncplayerpreloginevent.getName();
-		Bukkit.broadcastMessage(ChatColor.GRAY + (result != PlayerPreLoginEvent.Result.ALLOWED ? String.format("Unfortunately, %s is refused to log in because %s", s, Utils.getRefuseMessage(result)) : s + " is logging in..."));
+		Bukkit.broadcastMessage(ChatColor.GRAY + (result != Result.ALLOWED ? String.format("Unfortunately, %s is refused to log in because %s", s, Utils.getRefuseMessage(result)) : s + " is logging in..."));
 	}
 
 	@EventHandler
@@ -490,7 +507,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		try {
 			pingList.addEntry(serverlistpingevent);
 			IChatBaseComponent ichatbasecomponent = new ChatComponentText("");
-			PingList.PingEntry pingentry = pingList.get(serverlistpingevent.getAddress());
+			PingEntry pingentry = pingList.get(serverlistpingevent.getAddress());
 			IChatBaseComponent players = getPingedPlayerNames(pingentry);
 
 			if (players != null) {
@@ -499,21 +516,21 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 			InetAddress inetaddress = serverlistpingevent.getAddress();
 			String s = inetaddress.getHostAddress();
-			ichatbasecomponent.addSibling(new ChatMessage("%s%s pinged the server for the %s time today", players == null ? "" : "@", new ChatComponentText(s).setChatModifier(new ChatModifier().setChatClickable(new ChatClickable(ChatClickable.EnumClickAction.OPEN_URL, "http://whatismyipaddress.com/ip/" + s)).setChatHoverable(new ChatHoverable(ChatHoverable.EnumHoverAction.SHOW_TEXT, new ChatComponentText("Click for more info on this IP address")))), Utils.ordinal(pingentry.getHowManyTimesPingedToday())).setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY)));
+			ichatbasecomponent.addSibling(new ChatMessage("%s%s pinged the server for the %s time today", players == null ? "" : "@", new ChatComponentText(s).setChatModifier(new ChatModifier().setChatClickable(new ChatClickable(EnumClickAction.OPEN_URL, "http://whatismyipaddress.com/ip/" + s)).setChatHoverable(new ChatHoverable(EnumHoverAction.SHOW_TEXT, new ChatComponentText("Click for more info on this IP address")))), Utils.ordinal(pingentry.getHowManyTimesPingedToday())).setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY)));
 			((CraftServer) getServer()).getHandle().sendMessage(ichatbasecomponent);
 		} catch (Throwable e) {
 			LOGGER.warn("Unexpected error occurred in ping event", e);
 		}
 	}
 
-	private IChatBaseComponent getPingedPlayerNames(PingList.PingEntry pingentry) {
+	private IChatBaseComponent getPingedPlayerNames(PingEntry pingentry) {
 		if (pingentry == null || pingentry.names.isEmpty()) {
 			return null;
 		}
 
 		String[] astring = new String[pingentry.names.size()];
 		Arrays.fill(astring, "%s");
-		return new ChatMessage(Utils.joinNiceString(astring, "or"), Lists.transform(pingentry.names, GAME_PROFILE_TO_NAME_FUNCTION).toArray(new IChatBaseComponent[pingentry.names.size()]));
+		return new ChatMessage(Utils.joinNiceString(astring, "or"), Lists.transform(new ArrayList<>(pingentry.names), GAME_PROFILE_TO_NAME_FUNCTION).toArray(new IChatBaseComponent[pingentry.names.size()]));
 	}
 
 	private void changePassword(CommandSender commandsender, String[] astring) throws NoSuchAlgorithmException {
@@ -677,6 +694,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 	public void listPNameHistory(final CommandSender a, final String b) {
 		new Thread(new Runnable() {
+			@Override
 			public void run() {
 				if (!Bukkit.getOnlineMode()) {
 					msg(a, "\u00a7cThis server must be in online mode!");
@@ -699,7 +717,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 					for (PlayerNameHistory i : getPNameHistory(uuid)) {
 						String d = "\u00a76" + c++ + ".\u00a7r \u00a7e" + i.name + "\u00a7r ";
-						d += (i.changedToAt > 0 ? "on \u00a7e" + SDF.format(i.changedToAt) : "initial name");
+						d += i.changedToAt > 0 ? "on \u00a7e" + SDF.format(i.changedToAt) : "initial name";
 						a.sendMessage(d);
 					}
 				} catch (Throwable e) {
@@ -727,6 +745,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
+	@Override
 	public boolean onCommand(final CommandSender commandSender, Command b, String c, final String[] astring) {
 		try {
 			boolean isPlayer = commandSender instanceof Player;
@@ -811,7 +830,6 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					World w = getServer().getWorld(worldname);
 
 					if (w == null) {
-						Bukkit.broadcastMessage(ChatColor.GRAY + "World " + ChatColor.BOLD + worldname + ChatColor.RESET + ChatColor.GRAY + " is being loaded");
 						getServer().getWorlds().add(w = getServer().createWorld(new WorldCreator(worldname)));
 					}
 
@@ -866,7 +884,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					final BossBar bb = Bukkit.createBossBar("Starting download...", cols[new Random().nextInt(cols.length)], BarStyle.SOLID);
 					bb.addPlayer(p);
 					final Player theP = p;
-					Downloader.download(fl, theURL, 2048L * 1024L * 1024L, new Downloader.DownloadListener() {
+					Downloader.download(fl, theURL, 2048L * 1024L * 1024L, new DownloadListener() {
 						long start;
 						int oldPer;
 
@@ -988,7 +1006,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					return true;
 
 				case "password":
-					if (astring.length == 2 || (astring.length == 1 && astring[0].equals("clear"))) {
+					if (astring.length == 2 || astring.length == 1 && astring[0].equals("clear")) {
 						changePassword(commandSender, astring);
 						return true;
 					} else {
@@ -1003,15 +1021,15 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 					listPNameHistory(commandSender, astring[0]);
 					return true;
-//				case "selector":
-//					if (astring.length == 0) throw new WrongUsageException();
+				case "testselector-bukkit":
+					if (astring.length == 0 || !(commandSender instanceof Player)) {
+						throw new WrongUsageException();
+					}
 //					Utils.noReflection(commandSender);
-//					List<net.minecraft.server.v1_11_R1.Entity> s = Selector.select(commandSender, astring[0]);
-//					// List<String> list = new ArrayList<>();
-//					// for (Object i : s)
-//					// list.add(i.toString());
-//					msg(commandSender, "Expression " + astring[0] + " matches " + s.size() + " entities");
-//					// msg(a, "DEBUG " + Utils.getListener(a).a(1, "@"));
+					commandSender.sendMessage("DEBUG " + Arrays.toString(astring));
+					commandSender.sendMessage("DEBUG " + Utils.getListener(commandSender));
+					msg(commandSender, "Selector expression " + astring[0] + " matches " + PlayerSelector.getPlayers(((CraftPlayer) commandSender).getHandle(), astring[0], net.minecraft.server.v1_11_R1.Entity.class).size() + " entities");
+					return true;
 //					throw new CommandException("This command is broken!");
 				case "text":
 					validatePlayer(commandSender);
@@ -1044,7 +1062,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					return true;
 
 				case "wtest":
-					if (!isPlayer || (astring.length == 1 && astring[0].equals("-t"))) {
+					if (!isPlayer || astring.length == 1 && astring[0].equals("-t")) {
 						msg(commandSender, new String[]{"This is the welcome title message:", getConfig().getString("welcome-title").replaceAll("&", "\u00a7"), getConfig().getString("welcome-subtitle").replaceAll("&", "\u00a7")});
 						return true;
 					}
@@ -1076,6 +1094,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					if (!isZipping) {
 						isZipping = true;
 						new Thread(new Runnable() {
+							@Override
 							public void run() {
 								try {
 									commandSender.sendMessage("Starting zip of the server folder");
@@ -1176,23 +1195,23 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 						default:
 							throw new CommandException("unknown structure name! " + astring[0]);
 						case "deserttemple":
-							genSuccess = new WorldGenRegistration.WorldGenPyramidPiece(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+							genSuccess = new WorldGenPyramidPiece(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
 							hasRes = true;
 							break;
 						case "witchhut":
-							genSuccess = new WorldGenRegistration.WorldGenWitchHut(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+							genSuccess = new WorldGenWitchHut(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
 							hasRes = true;
 							break;
 						case "jungletemple":
-							genSuccess = new WorldGenRegistration.WorldGenJungleTemple(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+							genSuccess = new WorldGenJungleTemple(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
 							hasRes = true;
 							break;
 						case "igloo":
-							genSuccess = new WorldGenRegistration.b(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+							genSuccess = new b(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
 							hasRes = true;
 							break;
 						case "vlight":
-							genSuccess = new WorldGenVillagePieces.WorldGenVillageLight().a(w2, rng, sbb);
+							genSuccess = new WorldGenVillageLight().a(w2, rng, sbb);
 							hasRes = true;
 							break;
 					}
@@ -1223,7 +1242,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 						throw new WrongUsageException();
 					}
 					try {
-						phoneMap.sendInput(PhoneMap.PhoneInput.valueOf(astring[0].toUpperCase()), p);
+						phoneMap.sendInput(PhoneInput.valueOf(astring[0].toUpperCase()), p);
 					} catch (IllegalArgumentException e) {
 						throw new CommandException("Unknown input: " + astring[0]);
 					} catch (IllegalStateException e) {
@@ -1249,6 +1268,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
+	@Override
 	public void onEnable() {
 		try {
 			LOGGER.info("NMS version: " + NMS_VERSION);
@@ -1287,8 +1307,9 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			// Register separate class commands
 			getCommand("getbanner").setExecutor(new CommandGetBanner());
 			getCommand("listfile").setExecutor(new CommandListFile());
-			getCommand("blockinfo").setExecutor(new CommandCoords());
 			getCommand("banadv").setExecutor(new CommandBanAdvanced());
+			((CraftServer) getServer()).getCommandMap().register(getName(), new CommandBlockInfo());
+			registerNmsCommand(new CommandTestSelector());
 
 			// TODO afk ticker, broken
 			// ticker = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this, 0, 20);
@@ -1306,6 +1327,11 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
+	private void registerNmsCommand(CommandAbstract commandAbstract) {
+		((CraftServer) Bukkit.getServer()).getCommandMap().register(getName(), new VanillaCommandWrapper(commandAbstract, commandAbstract.getCommand()));
+	}
+
+	@Override
 	public List<String> onTabComplete(CommandSender commandsender, Command command, String s, String[] astring) {
 		try {
 			switch (command.getName().toLowerCase()) {
@@ -1316,10 +1342,10 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					return astring.length == 1 ? CommandAbstract.a(astring, getAvailableLootTables(commandsender)) : astring.length == 2 ? CommandAbstract.a(astring, Arrays.asList("true", "false")) : Collections.<String>emptyList();
 
 				case "inputphone":
-					return astring.length == 1 ? CommandAbstract.a(astring, Lists.transform(Arrays.asList(PhoneMap.PhoneInput.values()), new Function<PhoneMap.PhoneInput, String>() {
+					return astring.length == 1 ? CommandAbstract.a(astring, Lists.transform(Arrays.asList(PhoneInput.values()), new Function<PhoneInput, String>() {
 						@Nullable
 						@Override
-						public String apply(@Nullable PhoneMap.PhoneInput phoneInput) {
+						public String apply(@Nullable PhoneInput phoneInput) {
 							return phoneInput.toString().toLowerCase();
 						}
 					})) : Collections.<String>emptyList();
@@ -1349,7 +1375,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	@EventHandler
-	public void onDamage(EntityDamageEvent entitydamageevent) {
+	public void a(EntityDamageEvent entitydamageevent) {
 		if (entitydamageevent.getEntityType() != EntityType.PLAYER || !showDamageSummary) {
 			return;
 		}
@@ -1365,6 +1391,15 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		} catch (Throwable throwable) {
 			Utils.broke(throwable);
 		}
+	}
+
+	@EventHandler
+	public void a(WorldLoadEvent worldloadevent) {
+		Bukkit.broadcastMessage(ChatColor.GRAY + "World " + ChatColor.BOLD + worldloadevent.getWorld().getName() + ChatColor.RESET + ChatColor.GRAY + " is being loaded");
+	}
+
+	public void a(WorldUnloadEvent worldunloadevent) {
+		Bukkit.broadcastMessage(ChatColor.GRAY + "World " + ChatColor.BOLD + worldunloadevent.getWorld().getName() + ChatColor.RESET + ChatColor.GRAY + " is being unloaded");
 	}
 
 //	public void run() {
@@ -1419,7 +1454,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			FileConfiguration data = YamlConfiguration.loadConfiguration(getResource("plugin.yml"));
 			return new SimpleDateFormat("yyyyMMdd-HHmmss").parse(data.getString("build-date")).getTime();
 		} catch (Exception e) {
-			AmrsatrioServer.LOGGER.warn("Can't get build date, returning 0", e);
+			LOGGER.warn("Can't get build date, returning 0", e);
 			return 0;
 		}
 	}

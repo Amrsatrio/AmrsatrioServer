@@ -2,6 +2,7 @@ package com.amrsatrio.server;
 
 import net.minecraft.server.v1_11_R1.ChatComponentText;
 import net.minecraft.server.v1_11_R1.PacketPlayOutTitle;
+import net.minecraft.server.v1_11_R1.PacketPlayOutTitle.EnumTitleAction;
 import net.minecraft.server.v1_11_R1.PlayerConnection;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -31,11 +32,11 @@ public class Title {
 	public Title(Title title) {
 		// Copy title
 		this.title = title.getTitle();
-		this.subtitle = title.getSubtitle();
-		this.fadeInTime = title.getFadeInTime();
-		this.fadeOutTime = title.getFadeOutTime();
-		this.stayTime = title.getStayTime();
-		this.ticks = title.isTicks();
+		subtitle = title.getSubtitle();
+		fadeInTime = title.getFadeInTime();
+		fadeOutTime = title.getFadeOutTime();
+		stayTime = title.getStayTime();
+		ticks = title.isTicks();
 	}
 
 	public Title(String title, String subtitle, int fadeInTime, int stayTime, int fadeOutTime) {
@@ -49,18 +50,18 @@ public class Title {
 	public static void clearTitle(Player player) {
 		// Send timings first
 		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.CLEAR, null);
+		PacketPlayOutTitle packet = new PacketPlayOutTitle(EnumTitleAction.CLEAR, null);
 		connection.sendPacket(packet);
 	}
 
 	public static void resetTitle(Player player) {
 		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.RESET, null);
+		PacketPlayOutTitle packet = new PacketPlayOutTitle(EnumTitleAction.RESET, null);
 		connection.sendPacket(packet);
 	}
 
 	public String getTitle() {
-		return this.title;
+		return title;
 	}
 
 	public void setTitle(String title) {
@@ -68,7 +69,7 @@ public class Title {
 	}
 
 	public String getSubtitle() {
-		return this.subtitle;
+		return subtitle;
 	}
 
 	public void setSubtitle(String subtitle) {
@@ -95,23 +96,23 @@ public class Title {
 
 	public void updateTimes(Player player) {
 		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TIMES, null, this.fadeInTime * (this.ticks ? 1 : 20), this.stayTime * (this.ticks ? 1 : 20), this.fadeOutTime * (this.ticks ? 1 : 20));
-		if ((this.fadeInTime != -1) && (this.fadeOutTime != -1) && (this.stayTime != -1)) {
+		PacketPlayOutTitle packet = new PacketPlayOutTitle(EnumTitleAction.TIMES, null, fadeInTime * (ticks ? 1 : 20), stayTime * (ticks ? 1 : 20), fadeOutTime * (ticks ? 1 : 20));
+		if (fadeInTime != -1 && fadeOutTime != -1 && stayTime != -1) {
 			connection.sendPacket(packet);
 		}
 	}
 
 	public void updateTitle(Player player) {
 		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-		ChatComponentText serialized = new ChatComponentText(ChatColor.translateAlternateColorCodes('&', this.title));
-		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE, serialized);
+		ChatComponentText serialized = new ChatComponentText(ChatColor.translateAlternateColorCodes('&', title));
+		PacketPlayOutTitle packet = new PacketPlayOutTitle(EnumTitleAction.TITLE, serialized);
 		connection.sendPacket(packet);
 	}
 
 	public void updateSubtitle(Player player) {
 		PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-		ChatComponentText serialized = new ChatComponentText(ChatColor.translateAlternateColorCodes('&', this.subtitle));
-		PacketPlayOutTitle packet = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.SUBTITLE, serialized);
+		ChatComponentText serialized = new ChatComponentText(ChatColor.translateAlternateColorCodes('&', subtitle));
+		PacketPlayOutTitle packet = new PacketPlayOutTitle(EnumTitleAction.SUBTITLE, serialized);
 		connection.sendPacket(packet);
 	}
 
@@ -126,7 +127,7 @@ public class Title {
 	}
 
 	public void setFadeInTime(int time) {
-		this.fadeInTime = time;
+		fadeInTime = time;
 	}
 
 	public int getFadeOutTime() {
@@ -134,7 +135,7 @@ public class Title {
 	}
 
 	public void setFadeOutTime(int time) {
-		this.fadeOutTime = time;
+		fadeOutTime = time;
 	}
 
 	public int getStayTime() {
@@ -142,7 +143,7 @@ public class Title {
 	}
 
 	public void setStayTime(int time) {
-		this.stayTime = time;
+		stayTime = time;
 	}
 
 	public boolean isTicks() {

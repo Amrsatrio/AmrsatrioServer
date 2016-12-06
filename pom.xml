@@ -38,7 +38,7 @@
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
-					<outputDirectory>M:\MCMA2-Latest\Minecraft\plugins</outputDirectory>
+					<outputDirectory>C:\Users\Amr Satrio\Desktop</outputDirectory>
 					<appendAssemblyId>false</appendAssemblyId>
 				</configuration>
 			</plugin>

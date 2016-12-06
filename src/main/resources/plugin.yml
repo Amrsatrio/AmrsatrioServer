@@ -1,6 +1,6 @@
 name: AmrsatrioServer
 main: com.amrsatrio.server.AmrsatrioServer
-version: 1.0.642
+version: 1.0.674
 authors:
   - Amrsatrio
   - ammar18
@@ -11,6 +11,7 @@ commands:
 #    usage: /<command>
   sysinfo:
     description: Display system info. Sometimes it might not work.
+    usage: /<command>
   banadv:
     description: Advanced version of /ban.
     usage: /<command> -p <player> [-t <duration>] [-r <reason>]
@@ -21,9 +22,11 @@ commands:
   tpworld:
     description: Teleports you to another world. Highly experimental.
     usage: /<command> <worldName...>
-    aliases: changeworld, tpw
+    aliases:
+      - changeworld
+      - tpw
   togglechatcaps:
-    description: Toggles lowercasing chat messages when there's too much capital letters. This feature doesn't work correctly in some conditions.
+    description: Toggle lowercasing chat messages when there's too much capital letters. This feature doesn't work correctly in some cases.
     usage: /<command>
     aliases: chatfiltercaps
   nameitem:
@@ -34,10 +37,10 @@ commands:
     description: Displays all Minecraft formatting codes.
     usage: /<command>
     aliases: colguide
-  blockinfo:
-    description: Shows your hovered block's info.
-    usage: /<command>
-    aliases: coords
+#  blockinfo:
+#    description: Shows your hovered block's info.
+#    usage: /<command>
+#    aliases: coords
   download:
     description: Experimentally download a file into the server folder.
     usage: /<command> <url...>
@@ -78,7 +81,7 @@ commands:
     description: Set the welcome title's title.
     usage: /<command> <text>
   wtoggle:
-    description: Toggles whether the welcome title is shown to a just joined player.
+    description: Toggle showing welcome title to a just joined player.
     usage: /<command>
   password:
     description: Change the plugin password.
@@ -89,9 +92,9 @@ commands:
   text:
     description: Make blocks forming a text.
     usage: /<command> <text...>
-#  selector:
-#    description: Test a selector expression.
-#    usage: /<command> <expression>
+  testselector-bukkit:
+    description: Test a selector expression.
+    usage: /<command> <expression>
   svping:
     description: check that the server is still responding
     usage: /<command> [arg0]

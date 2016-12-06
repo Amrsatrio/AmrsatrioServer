@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.Map.Entry;
 
 public class CommandListFile implements CommandExecutor {
 	public static HashMap<Player, FileGui> fileGuis = new HashMap<>();
@@ -34,12 +35,12 @@ public class CommandListFile implements CommandExecutor {
 	}
 
 	private static ItemStack getItemForFile(File f) throws IOException {
-		ItemStack itemstack = new ItemStack(f.isDirectory() ? (f.getName().equals(nameForParent) ? Material.NETHER_STAR : Material.BOOK) : Material.PAPER);
+		ItemStack itemstack = new ItemStack(f.isDirectory() ? f.getName().equals(nameForParent) ? Material.NETHER_STAR : Material.BOOK : Material.PAPER);
 		ItemMeta im = itemstack.getItemMeta();
 		im.setDisplayName("\u00a7" + (f.isHidden() ? "7" : "r") + f.getName());
 		String clickedDir = f.getName();
 		int dotIndex = clickedDir.lastIndexOf('.');
-		String ext = ((dotIndex == -1) ? "" : clickedDir.substring(dotIndex + 1).toUpperCase());
+		String ext = dotIndex == -1 ? "" : clickedDir.substring(dotIndex + 1).toUpperCase();
 		List<String> theArray = new ArrayList<>();
 		theArray.add("");
 		if (f.canRead() && f.isDirectory() && f.list() != null) {
@@ -110,8 +111,8 @@ public class CommandListFile implements CommandExecutor {
 
 		public FileGui(Player a, File b) {
 			//System.out.println("Creating filegui instance: " + b);
-			this.pl = a;
-			this.f = b;
+			pl = a;
+			f = b;
 			ArrayList<File> folders = new ArrayList<>();
 			ArrayList<File> files = new ArrayList<>();
 			if (f.getParentFile() != null) {
@@ -149,7 +150,7 @@ public class CommandListFile implements CommandExecutor {
 				if (new File(thef).isDirectory()) {
 					String thef2 = thef;
 					File pf = f.getParentFile();
-					if (clickedDir.equals(CommandListFile.nameForParent) && pf != null) {
+					if (clickedDir.equals(nameForParent) && pf != null) {
 						thef2 = pf.getAbsolutePath();
 					}
 					//CommandListFile.fileGuis.remove(pl);
@@ -157,6 +158,7 @@ public class CommandListFile implements CommandExecutor {
 					return;
 				} else if (allowedExts.contains(FilenameUtils.getExtension(clickedDir).toUpperCase())) {
 					new Thread(new Runnable() {
+						@Override
 						public void run() {
 							Utils.a(pl, new File(thef));
 						}
@@ -174,7 +176,7 @@ public class CommandListFile implements CommandExecutor {
 			String path = f.getAbsolutePath().replace("\\", "\\\\");
 			Utils.jsonMsg(pl, "{\"text\":\"\u00a7oGo to " + path + "\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/ls " + path + "\"}}");
 			if (!switching) {
-				CommandListFile.fileGuis.remove(pl);
+				fileGuis.remove(pl);
 			}
 		}
 
@@ -211,7 +213,7 @@ public class CommandListFile implements CommandExecutor {
 		public void show(Map<Integer, ItemStack> cont) {//(int) Math.ceil((double) entries.size() / 9)
 			Inventory inv = Bukkit.createInventory(null, 6 * 9, (f.getName().isEmpty() ? "Root" : f.getName()) + (pages > 1 ? String.format(" (%d/%d)", page, pages) : ""));
 			//System.out.println("Opening " + f + ": " + inv.getName());
-			for (Map.Entry<Integer, ItemStack> i : cont.entrySet()) {
+			for (Entry<Integer, ItemStack> i : cont.entrySet()) {
 				inv.setItem(i.getKey(), i.getValue());
 			}
 			switching = true;

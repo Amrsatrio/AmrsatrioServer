@@ -8,28 +8,29 @@ package com.amrsatrio.server.mapphone;
 import java.util.HashMap;
 
 public class MapFont {
-	private final HashMap<Character, MapFont.CharacterSprite> chars = new HashMap<>();
+	private final HashMap<Character, CharacterSprite> chars = new HashMap<>();
 	protected boolean malleable = true;
 	private int height = 0;
 
-	public void setChar(char ch, MapFont.CharacterSprite sprite) {
-		if (!this.malleable) {
+	public void setChar(char ch, CharacterSprite sprite) {
+		if (!malleable) {
 			throw new IllegalStateException("this font is not malleable");
 		} else {
-			this.chars.put(ch, sprite);
-			if (sprite.getHeight() > this.height) {
-				this.height = sprite.getHeight();
+			chars.put(ch, sprite);
+			if (sprite.getHeight() > height) {
+				height = sprite.getHeight();
 			}
 
 		}
 	}
 
-	public MapFont.CharacterSprite getChar(char ch) {
-		return this.chars.get(ch);
+	public CharacterSprite getChar(char ch) {
+		CharacterSprite charactersprite = chars.get(ch);
+		return charactersprite == null ? chars.get('?') : charactersprite;
 	}
 
 	public int getWidth(String text) {
-		if (!this.isValid(text)) {
+		if (!isValid(text)) {
 			throw new IllegalArgumentException("text contains invalid characters");
 		} else if (text.length() == 0) {
 			return 0;
@@ -39,7 +40,7 @@ public class MapFont {
 			for (int i = 0; i < text.length(); ++i) {
 				char ch = text.charAt(i);
 //				if (ch != 167) {
-				result += this.chars.get(ch).getWidth();
+				result += chars.get(ch).getWidth();
 //				}
 			}
 
@@ -49,13 +50,13 @@ public class MapFont {
 	}
 
 	public int getHeight() {
-		return this.height;
+		return height;
 	}
 
 	public boolean isValid(String text) {
 		for (int i = 0; i < text.length(); ++i) {
 			char ch = text.charAt(i);
-			if (ch != 167 && ch != 10 && this.chars.get(ch) == null) {
+			if (ch != 167 && ch != 10 && chars.get(ch) == null) {
 				return false;
 			}
 		}
@@ -78,15 +79,15 @@ public class MapFont {
 		}
 
 		public boolean get(int row, int col) {
-			return (row >= 0 && col >= 0 && row < this.height && col < this.width) && this.data[row * this.width + col];
+			return row >= 0 && col >= 0 && row < height && col < width && data[row * width + col];
 		}
 
 		public int getWidth() {
-			return this.width;
+			return width;
 		}
 
 		public int getHeight() {
-			return this.height;
+			return height;
 		}
 	}
 }

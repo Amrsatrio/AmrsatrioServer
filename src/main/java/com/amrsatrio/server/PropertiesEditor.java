@@ -1,6 +1,7 @@
 package com.amrsatrio.server;
 
 import net.minecraft.server.v1_11_R1.ChatClickable;
+import net.minecraft.server.v1_11_R1.ChatClickable.EnumClickAction;
 import net.minecraft.server.v1_11_R1.ChatComponentText;
 import net.minecraft.server.v1_11_R1.ChatModifier;
 import org.bukkit.Bukkit;
@@ -53,7 +54,7 @@ public class PropertiesEditor {
 			String col = "7";
 			ItemStack it = new ItemStack(Material.PAPER);
 			ItemMeta im = it.getItemMeta();
-			im.setDisplayName("\u00a7r" + n.getKey().toString());
+			im.setDisplayName("\u00a7r" + n.getKey());
 			String val = n.getValue().toString();
 			if (val.isEmpty()) {
 				val = "\u00a7o<not set>";
@@ -77,7 +78,7 @@ public class PropertiesEditor {
 	}
 
 	public void show() {
-		this.a();
+		a();
 		if (p.getOpenInventory() != null) {
 			p.closeInventory();
 		}
@@ -96,7 +97,7 @@ public class PropertiesEditor {
 			prop.setProperty(currentK, a.getMessage());
 			currentK = null;
 			waiting = false;
-			this.show();
+			show();
 		}
 	}
 
@@ -108,7 +109,7 @@ public class PropertiesEditor {
 			waiting = true;
 			p.closeInventory();
 			AmrsatrioServer.msg(p, "Type the desired value for " + currentK + " in the chat box.", "PropEdit");
-			((CraftPlayer) p).getHandle().sendMessage(new ChatComponentText("Click me to insert current value into chat box").setChatModifier(new ChatModifier().setUnderline(true).setChatClickable(new ChatClickable(ChatClickable.EnumClickAction.SUGGEST_COMMAND, prop.getProperty(currentK, "UNKNOWN")))));
+			((CraftPlayer) p).getHandle().sendMessage(new ChatComponentText("Click me to insert current value into chat box").setChatModifier(new ChatModifier().setUnderline(true).setChatClickable(new ChatClickable(EnumClickAction.SUGGEST_COMMAND, prop.getProperty(currentK, "UNKNOWN")))));
 		} else if (a.getClick() == ClickType.SHIFT_RIGHT) {
 			p.closeInventory();
 

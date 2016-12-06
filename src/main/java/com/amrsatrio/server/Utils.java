@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import net.minecraft.server.v1_11_R1.*;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -13,9 +14,11 @@ import org.bukkit.command.*;
 import org.bukkit.craftbukkit.v1_11_R1.CraftServer;
 import org.bukkit.craftbukkit.v1_11_R1.command.CraftBlockCommandSender;
 import org.bukkit.craftbukkit.v1_11_R1.command.ProxiedNativeCommandSender;
+import org.bukkit.craftbukkit.v1_11_R1.entity.CraftMinecartCommand;
 import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerPreLoginEvent;
+import org.bukkit.entity.minecart.CommandMinecart;
+import org.bukkit.event.player.PlayerPreLoginEvent.Result;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -151,22 +154,22 @@ public class Utils {
 		broke(e, "");
 	}
 
-	public static void broke(Throwable e, String string) {
-		String s = "§4§l§ka§4§l>>§r    §c§lOh nose! I've caught an error" + string + "!§r    §4§l<<§ka";
+	public static void broke(Throwable e, String s) {
+		String s1 = "§4§l§ka§4§l>>§r    §c§lOh nose! I've caught an error" + s + "!§r    §4§l<<§ka";
 
 		if (AmrsatrioServer.verbose) {
-			Bukkit.broadcastMessage(s);
-			Bukkit.broadcastMessage("\u00a7c" + e.toString());
+			Bukkit.broadcastMessage(s1);
+			Bukkit.broadcastMessage(ChatColor.RED.toString() + e);
 		} else {
-			Bukkit.getConsoleSender().sendMessage(s);
-			Bukkit.getConsoleSender().sendMessage("\u00a7c" + e.toString());
+			Bukkit.getConsoleSender().sendMessage(s1);
+			Bukkit.getConsoleSender().sendMessage(ChatColor.RED.toString() + e);
 		}
 
 		for (StackTraceElement i : e.getStackTrace()) {
 			String string1 = i.getClassName();
 			String fcl = string1.substring(0, string1.lastIndexOf('.') + 1) + "\u00a7f" + string1.substring(string1.lastIndexOf('.') + 1);
 			String cls = "{\"text\":\"" + string1.substring(string1.lastIndexOf('.') + 1) + "\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":\"\u00a77" + fcl + "\"}}";
-			String str = "\u00a7r" + (i.isNativeMethod() ? "(\u00a7oNative Method\u00a7r)" : (i.getFileName() != null && i.getLineNumber() >= 0 ? "(\u00a7b" + i.getFileName() + "\u00a7r:\u00a73" + i.getLineNumber() + "\u00a7r)" : (i.getFileName() != null ? "(\u00a7b" + i.getFileName() + "\u00a7r)" : "(\u00a7oUnknown Source\u00a7r)")));
+			String str = "\u00a7r" + (i.isNativeMethod() ? "(\u00a7oNative Method\u00a7r)" : i.getFileName() != null && i.getLineNumber() >= 0 ? "(\u00a7b" + i.getFileName() + "\u00a7r:\u00a73" + i.getLineNumber() + "\u00a7r)" : i.getFileName() != null ? "(\u00a7b" + i.getFileName() + "\u00a7r)" : "(\u00a7oUnknown Source\u00a7r)");
 
 			if (AmrsatrioServer.verbose) {
 				bcmJson("[{\"text\":\"\u00a77at \"}," + cls + ",{\"text\":\".\u00a7a" + i.getMethodName() + str + "\"}]");
@@ -191,7 +194,7 @@ public class Utils {
 
 	public static String freeOf(long available, long total) {
 		long used = total - available;
-		return String.format("%s free of %s (%d%% used)", Utils.formatFileSize(available), Utils.formatFileSize(total), (int) ((double) used / (double) total * 100D));
+		return String.format("%s free of %s (%d%% used)", formatFileSize(available), formatFileSize(total), (int) ((double) used / (double) total * 100D));
 	}
 
 	private static void bcmJson(String string) {
@@ -275,7 +278,7 @@ public class Utils {
 	}
 
 	public static BytesResult formatBytes(long sizeBytes, int flags) {
-		final boolean isNegative = (sizeBytes < 0);
+		final boolean isNegative = sizeBytes < 0;
 		float result = isNegative ? -sizeBytes : sizeBytes;
 		String suffix = "B";
 		long mult = 1;
@@ -338,7 +341,7 @@ public class Utils {
 		final String roundedString = String.format(roundFormat, result);
 		// Note this might overflow if abs(result) >= Long.MAX_VALUE / 100, but that's like 80PB so
 		// it's okay (for now)...
-		final long roundedBytes = (flags & FLAG_CALCULATE_ROUNDED) == 0 ? 0 : (((long) Math.round(result * roundFactor)) * mult / roundFactor);
+		final long roundedBytes = (flags & FLAG_CALCULATE_ROUNDED) == 0 ? 0 : (long) Math.round(result * roundFactor) * mult / roundFactor;
 		return new BytesResult(roundedString, suffix, roundedBytes);
 	}
 
@@ -349,7 +352,7 @@ public class Utils {
 		double d2 = d1 / 60.0D;
 		double d3 = d2 / 24.0D;
 		double d4 = d3 / 365.0D;
-		return d4 > 0.5D ? decimalFormat.format(d4) + " y" : (d3 > 0.5D ? decimalFormat.format(d3) + " d" : (d2 > 0.5D ? decimalFormat.format(d2) + " h" : (d1 > 0.5D ? decimalFormat.format(d1) + " m" : d0 + " s")));
+		return d4 > 0.5D ? decimalFormat.format(d4) + " y" : d3 > 0.5D ? decimalFormat.format(d3) + " d" : d2 > 0.5D ? decimalFormat.format(d2) + " h" : d1 > 0.5D ? decimalFormat.format(d1) + " m" : d0 + " s";
 	}
 
 	public static String getIPAddress(boolean useIPv4) {
@@ -682,25 +685,32 @@ public class Utils {
 	}
 
 	@SuppressWarnings("deprecation")
+	// copied from VanillaCommandWrapper.getListener(CommandSender)
 	public static ICommandListener getListener(CommandSender sender) {
 		if (sender instanceof Player) {
 			return ((CraftPlayer) sender).getHandle();
 		}
+
 		if (sender instanceof BlockCommandSender) {
 			return ((CraftBlockCommandSender) sender).getTileEntity();
 		}
-//		if (sender instanceof CommandMinecart) {
-//			return ((CraftMinecartCommand) sender).getHandle().getCommandBlock();
-//		}
+
+		if (sender instanceof CommandMinecart) {
+			return ((CraftMinecartCommand) sender).getHandle().getCommandBlock();
+		}
+
 		if (sender instanceof RemoteConsoleCommandSender) {
 			return ((DedicatedServer) MinecraftServer.getServer()).remoteControlCommandListener;
 		}
+
 		if (sender instanceof ConsoleCommandSender) {
 			return ((CraftServer) sender.getServer()).getServer();
 		}
+
 		if (sender instanceof ProxiedCommandSender) {
 			return ((ProxiedNativeCommandSender) sender).getHandle();
 		}
+
 		throw new IllegalArgumentException("Cannot make " + sender + " a vanilla command listener");
 	}
 
@@ -767,7 +777,7 @@ public class Utils {
 		if (!FilenameUtils.getExtension(destination.getName()).equals("zip")) {
 			throw new IllegalArgumentException("Argument file is not a file with a .ZIP extension! The file name is " + destination.getName());
 		}
-		if (Utils.isInSubDirectory(srcFile, destination)) {
+		if (isInSubDirectory(srcFile, destination)) {
 			throw new IllegalArgumentException("Destination is subfolder of source");
 		}
 		URI base = srcFile.toURI();
@@ -823,7 +833,7 @@ public class Utils {
 		}
 	}
 
-	public static String getRefuseMessage(PlayerPreLoginEvent.Result result) {
+	public static String getRefuseMessage(Result result) {
 		switch (result) {
 			case ALLOWED: // very silly
 				return "that player is allowed to log in";
@@ -841,13 +851,14 @@ public class Utils {
 
 	public static void printListNumbered(CommandSender commandSender, List<String> list) {
 		for (int i = 0; i < list.size(); i++) {
-			commandSender.sendMessage((i + 1) + "." + list.get(i));
+			commandSender.sendMessage(ChatColor.GRAY.toString() + (i + 1) + ". " + ChatColor.RESET + list.get(i));
 		}
 	}
 
 	public static String ordinal(int i) {
 		int mod100 = i % 100;
 		int mod10 = i % 10;
+
 		if (mod10 == 1 && mod100 != 11) {
 			return i + "st";
 		} else if (mod10 == 2 && mod100 != 12) {
@@ -857,6 +868,14 @@ public class Utils {
 		} else {
 			return i + "th";
 		}
+	}
+
+	public static long getEndOfDay(long date) {
+		return DateUtils.addMilliseconds(DateUtils.ceiling(new Date(date), Calendar.DATE), -1).getTime();
+	}
+
+	public static long getStartOfDay(long date) {
+		return DateUtils.truncate(new Date(date), Calendar.DATE).getTime();
 	}
 
 	public static class BytesResult {

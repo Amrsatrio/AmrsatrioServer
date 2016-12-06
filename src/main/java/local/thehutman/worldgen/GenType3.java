@@ -40,7 +40,7 @@ class GenType3 {
 	 */
 	public static void generate(Player player, int radius, String namePerm, String nameDisplay, String nameClass) {
 
-		if (!(player.hasPermission(namePerm))) {
+		if (!player.hasPermission(namePerm)) {
 
 			player.sendMessage(ChatColor.RED + "You do not have permissions for generating that!");
 			return;

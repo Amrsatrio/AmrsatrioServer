@@ -15,9 +15,10 @@ public class Executor implements CommandExecutor {
 	private PrintStream errout;
 
 	public Executor(PrintStream a) {
-		this.errout = a;
+		errout = a;
 	}
 
+	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] split) {
 		Player p = null;
 		String CommandName = command.getName().toLowerCase();
@@ -48,7 +49,7 @@ public class Executor implements CommandExecutor {
 
 			}
 		} else if (CommandName.equals("kickreason")) {
-			if ((!isServerCommand) && (!p.isOp())) {
+			if (!isServerCommand && !p.isOp()) {
 				sender.sendMessage(ChatColor.GRAY + "You need to be an op to do that.");
 				return false;
 			}
@@ -66,7 +67,7 @@ public class Executor implements CommandExecutor {
 			}
 		} else if (CommandName.equals("svping")) {
 			if (isServerCommand) {
-				this.errout.println("0 0 [MCMAX] pong " + Utils.buildString(split, 0));
+				errout.println("0 0 [MCMAX] pong " + Utils.buildString(split, 0));
 			} else {
 				sender.sendMessage(ChatColor.AQUA + "pong " + Utils.buildString(split, 0));
 			}

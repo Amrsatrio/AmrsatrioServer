@@ -1,6 +1,6 @@
 package com.amrsatrio.server.mapphone;
 
-import com.amrsatrio.server.AmrsatrioServer;
+import com.amrsatrio.server.mapphone.MapFont.CharacterSprite;
 import org.bukkit.entity.Player;
 import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapPalette;
@@ -54,13 +54,9 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 	}
 
 	protected void str(int x, int y, String text, boolean black) {
-		try {
-//			text = text.replaceAll(" ", "_");
 			int xStart = x;
 			byte color = black ? 119 : MapPalette.TRANSPARENT;
-//			if (!font.isValid(text)) {
-//				throw new IllegalArgumentException("text contains invalid characters");
-//			} else {
+
 			for (int i = 0; i < text.length(); ++i) {
 				char ch = text.charAt(i);
 				if (ch == 10) {
@@ -80,11 +76,7 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 //							}
 //						}
 
-					MapFont.CharacterSprite var13 = font.getChar(text.charAt(i));
-
-					if (var13 == null) {
-						throw new NullPointerException("null char " + text.charAt(i));
-					}
+					CharacterSprite var13 = font.getChar(text.charAt(i));
 
 					for (int r = 0; r < font.getHeight(); ++r) {
 						for (int c = 0; c < var13.getWidth(); ++c) {
@@ -97,11 +89,6 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 					x += var13.getWidth() + 1;
 				}
 			}
-
-//			}
-		} catch (Throwable e) {
-			AmrsatrioServer.LOGGER.warn("Failed to draw font", e);
-		}
 	}
 
 //	public List<String> listFormattedStringToWidth(String str, int wrapWidth) {
@@ -112,7 +99,7 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 	 * Inserts newline and formatting into a string to wrap it within the specified width.
 	 */
 	protected String wrapFormattedStringToWidth(String str, int wrapWidth) {
-		int i = this.sizeStringToWidth(str, wrapWidth);
+		int i = sizeStringToWidth(str, wrapWidth);
 //		System.out.println("string width " + i);
 
 		if (str.length() <= i) {
@@ -122,7 +109,7 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 			char c0 = str.charAt(i);
 			boolean flag = c0 == 32 || c0 == 10;
 			String s1 = str.substring(i + (flag ? 1 : 0));
-			return s + "\n" + this.wrapFormattedStringToWidth(s1, wrapWidth);
+			return s + "\n" + wrapFormattedStringToWidth(s1, wrapWidth);
 		}
 	}
 

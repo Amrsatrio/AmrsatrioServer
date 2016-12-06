@@ -278,7 +278,7 @@ public class NokiaFont extends MapFont {
 		this.bold = bold;
 		int[][] fontDataToUse = !large && !bold ? FONT_DATA_REG : !large && bold ? FONT_DATA : new int[0][];
 		height = large ? 16 : 12;
-		this.setChar(' ', new CharacterSprite(2, height, new boolean[2 * height]));
+		setChar(' ', new CharacterSprite(2, height, new boolean[2 * height]));
 		char[] charArray = FONT_CHARS.toCharArray();
 		for (int i = 0; i < charArray.length; i++) {
 			char ch = charArray[i];
@@ -287,7 +287,7 @@ public class NokiaFont extends MapFont {
 //				}
 
 			if (ch == 32) {
-				this.setChar(ch, new CharacterSprite(2, height, new boolean[2 * height]));
+				setChar(ch, new CharacterSprite(2, height, new boolean[2 * height]));
 			} else {
 				int[] rows = fontDataToUse[i];
 
@@ -319,7 +319,7 @@ public class NokiaFont extends MapFont {
 					}
 				}
 
-				this.setChar(ch, new CharacterSprite(width, height, var9));
+				setChar(ch, new CharacterSprite(width, height, var9));
 			}
 		}
 

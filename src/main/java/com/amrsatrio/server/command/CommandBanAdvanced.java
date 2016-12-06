@@ -1,7 +1,7 @@
 package com.amrsatrio.server.command;
 
 import org.apache.commons.cli.*;
-import org.bukkit.BanList;
+import org.bukkit.BanList.Type;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandException;
@@ -96,7 +96,7 @@ public class CommandBanAdvanced implements CommandExecutor {
 
 		String s3 = commandline.getOptionValue('p');
 		String s4 = commandline.getOptionValue("r");
-		Bukkit.getBanList(BanList.Type.NAME).addBan(s3, s4, date, null);
+		Bukkit.getBanList(Type.NAME).addBan(s3, s4, date, null);
 		Player player = Bukkit.getServer().getPlayer(s3);
 
 		if (player != null) {

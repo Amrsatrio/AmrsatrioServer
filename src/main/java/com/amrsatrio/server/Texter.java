@@ -29,7 +29,7 @@ public class Texter {
 		}
 		int rpl = 0;
 		int rplna = 0;
-		int var24 = Utils.floor((pll.getYaw() * 4.0F / 360.0F) + 0.5D) & 3;// swne
+		int var24 = Utils.floor(pll.getYaw() * 4.0F / 360.0F + 0.5D) & 3;// swne
 		ItemStack setMat = pl.getInventory().getItemInMainHand();
 		if (setMat == null || setMat.getTypeId() > 0xff) {
 			pl.sendMessage("Server> Hold the block in your main hand that you want to set as the material.");
@@ -99,7 +99,7 @@ public class Texter {
 							break;
 					}
 				}
-				if ((curblock.getType() != set) || (curblock.getData() != setd)) {
+				if (curblock.getType() != set || curblock.getData() != setd) {
 					rpl++;
 				}
 				if (curblock.getType() != Material.AIR) {

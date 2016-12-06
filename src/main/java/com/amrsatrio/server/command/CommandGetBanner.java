@@ -19,6 +19,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public class CommandGetBanner implements CommandExecutor {
 
@@ -45,12 +46,12 @@ public class CommandGetBanner implements CommandExecutor {
 		private PatternType toAddPattern;
 
 		public GetBannerGui(Player a) {
-			this.pl = a;
+			pl = a;
 		}
 
 		public void show(Map<Integer, ItemStack> cont) {
-			Inventory inv = Bukkit.createInventory(pl, 6 * 9, color ? (first ? "Select Base Color" : "Select Layer Color") : "Add Layer");
-			for (Map.Entry<Integer, ItemStack> i : cont.entrySet()) {
+			Inventory inv = Bukkit.createInventory(pl, 6 * 9, color ? first ? "Select Base Color" : "Select Layer Color" : "Add Layer");
+			for (Entry<Integer, ItemStack> i : cont.entrySet()) {
 				inv.setItem(i.getKey(), i.getValue());
 			}
 			switching = true;
@@ -123,7 +124,7 @@ public class CommandGetBanner implements CommandExecutor {
 					BannerMeta bm = (BannerMeta) ly.getItemMeta();
 					bm.setBaseColor(DyeColor.WHITE);
 					bm.addPattern(new Pattern(DyeColor.BLACK, i));
-					bm.setDisplayName("\u00a7r" + i.toString());
+					bm.setDisplayName("\u00a7r" + i);
 					ly.setItemMeta(bm);
 					cont.put(9 + x2, ly);
 					++x2;

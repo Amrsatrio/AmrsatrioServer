@@ -10,6 +10,7 @@ import java.net.URL;
 public class Downloader {
 	public static Thread download(final File saveDir, final URL url, final long maxSize, final DownloadListener l, final Player p) {
 		Thread th = new Thread(new Runnable() {
+			@Override
 			public void run() {
 				HttpURLConnection httpurlconnection = null;
 				InputStream inputstream = null;

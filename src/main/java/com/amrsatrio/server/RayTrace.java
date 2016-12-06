@@ -6,9 +6,11 @@ import net.minecraft.server.v1_11_R1.Vec3D;
 import net.minecraft.server.v1_11_R1.WorldServer;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.v1_11_R1.CraftWorld;
 import org.bukkit.craftbukkit.v1_11_R1.block.CraftBlock;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.BlockVector;
 import org.bukkit.util.Vector;
@@ -21,16 +23,18 @@ public class RayTrace {
 	private BlockFace e;
 	private Vector f;
 	private BlockPosition g;
+	private Entity h;
 
-	protected RayTrace(World world, MovingObjectPosition movingobjectposition) {
-		this.b = movingobjectposition != null;
-		this.c = world;
+	private RayTrace(World world, MovingObjectPosition movingobjectposition) {
+		b = movingobjectposition != null;
+		c = world;
 
 		if (b) {
-			this.d = new BlockVector(movingobjectposition.a().getX(), movingobjectposition.a().getY(), movingobjectposition.a().getZ());
-			this.e = CraftBlock.notchToBlockFace(movingobjectposition.direction);
-			this.f = new Vector(movingobjectposition.pos.x, movingobjectposition.pos.y, movingobjectposition.pos.z);
-			this.g = movingobjectposition.a();
+			d = new BlockVector(movingobjectposition.a().getX(), movingobjectposition.a().getY(), movingobjectposition.a().getZ());
+			e = CraftBlock.notchToBlockFace(movingobjectposition.direction);
+			f = new Vector(movingobjectposition.pos.x, movingobjectposition.pos.y, movingobjectposition.pos.z);
+			g = movingobjectposition.a();
+			h = movingobjectposition.entity == null ? null : movingobjectposition.entity.getBukkitEntity();
 		}
 	}
 
@@ -52,6 +56,7 @@ public class RayTrace {
 		if (world instanceof CraftWorld) {
 			return ((CraftWorld) world).getHandle();
 		}
+
 		throw new IllegalArgumentException("Cannot raytrace in a non CraftBukkit world!");
 	}
 
@@ -71,7 +76,7 @@ public class RayTrace {
 		return d;
 	}
 
-	public org.bukkit.block.Block c() {
+	public Block c() {
 		return b ? d.toLocation(c).getBlock() : null;
 	}
 
@@ -85,5 +90,9 @@ public class RayTrace {
 
 	public BlockPosition f() {
 		return g;
+	}
+
+	public Entity g() {
+		return h;
 	}
 }

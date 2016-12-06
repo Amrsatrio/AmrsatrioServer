@@ -1,8 +1,8 @@
 package com.amrsatrio.server;
 
+import com.amrsatrio.server.PingList.PingEntry;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.Lists;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -10,24 +10,30 @@ import com.google.gson.JsonPrimitive;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.v1_11_R1.JsonList;
 import net.minecraft.server.v1_11_R1.JsonListEntry;
-import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.server.ServerListPingEvent;
 
 import javax.annotation.Nullable;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.text.ParseException;
 import java.util.*;
 
-public class PingList extends JsonList<String, PingList.PingEntry> {
+public class PingList extends JsonList<String, PingEntry> {
 	public static class PingEntry extends JsonListEntry<String> {
-		public List<GameProfile> names;
+		private static final Predicate<Long> TODAY_PREDICATE = new Predicate<Long>() {
+			@Override
+			public boolean apply(@Nullable Long aLong) {
+				return aLong >= Utils.getStartOfDay(System.currentTimeMillis()) && aLong <= Utils.getEndOfDay(System.currentTimeMillis());
+			}
+		};
+		public Set<CustomGameProfile> names;
 		public List<Long> times;
 
-		public PingEntry(String ip, List<GameProfile> names, List<Long> times) {
+		public PingEntry(String ip, Set<CustomGameProfile> names, List<Long> times) {
 			super(ip);
 			this.names = names;
 			this.times = times;
@@ -35,9 +41,8 @@ public class PingList extends JsonList<String, PingList.PingEntry> {
 
 		public PingEntry(JsonObject jsonobject) {
 			super(jsonobject.get("ip").getAsString(), jsonobject);
-//			System.out.println("reading " + jsonobject);
-			this.names = new ArrayList<>();
-			this.times = new ArrayList<>();
+			names = new TreeSet<>();
+			times = new ArrayList<>();
 
 			for (JsonElement jsonelement : jsonobject.get("names").getAsJsonArray()) {
 				names.add(constructProfile(jsonelement.getAsJsonObject()));
@@ -70,13 +75,7 @@ public class PingList extends JsonList<String, PingList.PingEntry> {
 		}
 
 		public int getHowManyTimesPingedToday() {
-			return Collections2.filter(this.times, new Predicate<Long>() {
-				@Override
-				public boolean apply(@Nullable Long aLong) {
-					Date date = new Date(aLong);
-					return aLong >= DateUtils.truncate(date, Calendar.DATE).getTime() && aLong < DateUtils.addMilliseconds(DateUtils.ceiling(date, Calendar.DATE), -1).getTime();
-				}
-			}).size();
+			return Collections2.filter(times, TODAY_PREDICATE).size();
 		}
 	}
 
@@ -90,8 +89,8 @@ public class PingList extends JsonList<String, PingList.PingEntry> {
 	}
 
 	public PingEntry get(InetAddress var1) {
-		String var2 = this.c(var1);
-		return this.get(var2);
+		String var2 = c(var1);
+		return get(var2);
 	}
 
 	private String c(InetAddress var1) {
@@ -117,7 +116,7 @@ public class PingList extends JsonList<String, PingList.PingEntry> {
 		return jsonarray;
 	}
 
-	private static GameProfile constructProfile(JsonObject jsonobject) {
+	private static CustomGameProfile constructProfile(JsonObject jsonobject) {
 		if (jsonobject.has("uuid") && jsonobject.has("name")) {
 			String s = jsonobject.get("uuid").getAsString();
 			UUID uuid;
@@ -128,10 +127,16 @@ public class PingList extends JsonList<String, PingList.PingEntry> {
 				return null;
 			}
 
-			return new GameProfile(uuid, jsonobject.get("name").getAsString());
+			return new CustomGameProfile(uuid, jsonobject.get("name").getAsString());
 		} else {
 			return null;
 		}
+	}
+
+	@Override
+	public void load() throws FileNotFoundException {
+		super.load();
+		save2();
 	}
 
 	@Override
@@ -156,20 +161,40 @@ public class PingList extends JsonList<String, PingList.PingEntry> {
 	public void addEntry(Player player) {
 		String s = c(player.getAddress().getAddress());
 		PingEntry pingentry = getOrCreate(s);
-		GameProfile gameprofile = ((CraftPlayer) player).getProfile();
-
-		if (!pingentry.names.contains(gameprofile)) {
-			pingentry.names.add(gameprofile);
-		}
-
+		CustomGameProfile customgameprofile = new CustomGameProfile(((CraftPlayer) player).getProfile());
+		pingentry.names.add(customgameprofile);
 		save2();
 	}
 
 	private PingEntry getOrCreate(String s) {
 		if (!d(s)) {
-			add(new PingEntry(s, Lists.<GameProfile>newArrayList(), Lists.<Long>newArrayList()));
+			add(new PingEntry(s, new TreeSet<CustomGameProfile>(), new ArrayList<Long>()));
 		}
 
 		return get(s);
+	}
+
+	private static class CustomGameProfile extends GameProfile implements Comparable<GameProfile> {
+		public CustomGameProfile(UUID uuid, String s) {
+			super(uuid, s);
+		}
+
+		public CustomGameProfile(GameProfile gameprofile) {
+			this(gameprofile.getId(), gameprofile.getName());
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			return getId().equals(((GameProfile) o).getId());
+		}
+
+		public int hashCode() {
+			return 31 * (getId() != null ? getId().hashCode() : 0);
+		}
+
+		@Override
+		public int compareTo(GameProfile o) {
+			return getId().compareTo(o.getId());
+		}
 	}
 }
