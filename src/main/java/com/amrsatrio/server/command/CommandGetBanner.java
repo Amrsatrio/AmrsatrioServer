@@ -1,7 +1,8 @@
 package com.amrsatrio.server.command;
 
-import com.amrsatrio.server.AmrsatrioServer;
-import com.amrsatrio.server.Utils;
+import com.amrsatrio.server.ServerPlugin;
+import net.minecraft.server.v1_11_R1.EntityItem;
+import net.minecraft.server.v1_11_R1.EntityPlayer;
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
@@ -10,6 +11,8 @@ import org.bukkit.block.banner.PatternType;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_11_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
@@ -22,21 +25,21 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 public class CommandGetBanner implements CommandExecutor {
-
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 		boolean isPlayer = sender instanceof Player;
+
 		if (!isPlayer) {
 			return true;
 		}
+
 		Player p = (Player) sender;
 		GetBannerGui gbg = new GetBannerGui(p);
 		gbg.refreshItems();
-		AmrsatrioServer.getBannerInstances.put(p, gbg);
+		ServerPlugin.getBannerInstances.put(p, gbg);
 		return true;
 	}
 
-	@SuppressWarnings("deprecation")
 	public static class GetBannerGui {
 		public boolean switching = false;
 		private Player pl;
@@ -51,9 +54,11 @@ public class CommandGetBanner implements CommandExecutor {
 
 		public void show(Map<Integer, ItemStack> cont) {
 			Inventory inv = Bukkit.createInventory(pl, 6 * 9, color ? first ? "Select Base Color" : "Select Layer Color" : "Add Layer");
+
 			for (Entry<Integer, ItemStack> i : cont.entrySet()) {
 				inv.setItem(i.getKey(), i.getValue());
 			}
+
 			switching = true;
 			// pl.closeInventory();
 			pl.openInventory(inv);
@@ -64,30 +69,35 @@ public class CommandGetBanner implements CommandExecutor {
 			if (a.getCurrentItem() == null || a.getCurrentItem().getItemMeta() == null) {
 				return;
 			}
+
 			a.setCancelled(true);
 			if (color) {
 				DyeColor c = DyeColor.getByDyeData(a.getCurrentItem().getData().getData());
 				BannerMeta bm = (BannerMeta) banner.getItemMeta();
+
 				if (first) {
 					bm.setBaseColor(c);
 					first = false;
 				} else {
 					bm.addPattern(new Pattern(c, toAddPattern));
 				}
+
 				banner.setItemMeta(bm);
 				color = false;
 			} else {
 				if (a.getSlot() == 4) {
 					pl.closeInventory();
-					Class<?> is = Utils.getNMSClass("ItemStack");
-					Object entityplayer = Utils.getHandle(pl);
-					Object entityitem = entityplayer.getClass().getMethod("drop", is, Boolean.TYPE).invoke(entityplayer, Utils.getOBCClass("inventory.CraftItemStack").getMethod("asNMSCopy", ItemStack.class).invoke(null, banner), false);
+					EntityPlayer entityplayer = ((CraftPlayer) pl).getHandle();
+					EntityItem entityitem = entityplayer.drop(CraftItemStack.asNMSCopy(banner), false);
+
 					if (entityitem != null) {
-						entityitem.getClass().getMethod("r").invoke(entityitem);
-						entityitem.getClass().getMethod("d", String.class).invoke(entityitem, pl.getName());
+						entityitem.r();
+						entityitem.d(pl.getName());
 					}
+
 					return;
 				}
+
 				toAddPattern = ((BannerMeta) a.getCurrentItem().getItemMeta()).getPattern(0).getPattern();
 				color = true;
 			}
@@ -100,6 +110,7 @@ public class CommandGetBanner implements CommandExecutor {
 			if (color) {
 				int x = 1;
 				int y = 1;
+
 				for (DyeColor i : DyeColor.values()) {
 					ItemStack is = new ItemStack(Material.INK_SACK, 1, (short) 0, i.getDyeData());
 					ItemMeta im = is.getItemMeta();
@@ -119,6 +130,7 @@ public class CommandGetBanner implements CommandExecutor {
 				bannerC.setItemMeta(bmm);
 				cont.put(4, bannerC);
 				int x2 = 0;
+
 				for (PatternType i : PatternType.values()) {
 					ItemStack ly = new ItemStack(Material.BANNER);
 					BannerMeta bm = (BannerMeta) ly.getItemMeta();
@@ -130,6 +142,7 @@ public class CommandGetBanner implements CommandExecutor {
 					++x2;
 				}
 			}
+
 			show(cont);
 		}
 	}

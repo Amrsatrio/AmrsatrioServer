@@ -3,27 +3,19 @@ package com.amrsatrio.server;
 import com.amrsatrio.server.Downloader.DownloadListener;
 import com.amrsatrio.server.PingList.PingEntry;
 import com.amrsatrio.server.bukkitcompat.MCMABukkitCompat;
-import com.amrsatrio.server.command.CommandBanAdvanced;
-import com.amrsatrio.server.command.CommandBlockInfo;
-import com.amrsatrio.server.command.CommandGetBanner;
+import com.amrsatrio.server.command.*;
 import com.amrsatrio.server.command.CommandGetBanner.GetBannerGui;
-import com.amrsatrio.server.command.CommandListFile;
 import com.amrsatrio.server.mapphone.PhoneMap;
 import com.amrsatrio.server.mapphone.PhoneMap.PhoneInput;
 import com.amrsatrio.server.nmscommand.CommandTestSelector;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
-import com.google.gson.Gson;
+import com.google.gson.*;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.v1_11_R1.*;
 import net.minecraft.server.v1_11_R1.ChatClickable.EnumClickAction;
 import net.minecraft.server.v1_11_R1.ChatHoverable.EnumHoverAction;
 import net.minecraft.server.v1_11_R1.LootTableInfo.a;
-import net.minecraft.server.v1_11_R1.WorldGenRegistration.WorldGenJungleTemple;
-import net.minecraft.server.v1_11_R1.WorldGenRegistration.WorldGenPyramidPiece;
-import net.minecraft.server.v1_11_R1.WorldGenRegistration.WorldGenWitchHut;
-import net.minecraft.server.v1_11_R1.WorldGenRegistration.b;
-import net.minecraft.server.v1_11_R1.WorldGenVillagePieces.WorldGenVillageLight;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
@@ -37,9 +29,9 @@ import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
-import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandException;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -68,21 +60,20 @@ import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.bukkit.projectiles.BlockProjectileSource;
-import oshi.SystemInfo;
-import oshi.hardware.HardwareAbstractionLayer;
-import oshi.software.os.OSFileStore;
-import oshi.software.os.OperatingSystem;
 
 import javax.annotation.Nullable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.net.InetAddress;
 import java.net.URL;
 import java.security.NoSuchAlgorithmException;
@@ -90,21 +81,24 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-@SuppressWarnings("deprecation")
-public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessageListener {
+import static com.amrsatrio.server.Utils.*;
+
+public class ServerPlugin extends JavaPlugin implements Listener, PluginMessageListener {
 	//	public static final boolean DEBUG = false;
 	public static final DecimalFormat HEALTH_DECIMAL_FORMAT = new DecimalFormat("#.##");
+	public static final ChatColor SH_COLOR = ChatColor.BLUE;
 	public static final ChatColor SH_MSG_COLOR = ChatColor.GRAY;
-	public static final String SERVER_HEADER = ChatColor.BLUE + "%s> " + SH_MSG_COLOR;
+	public static final String SH = "%s> ";
+	public static final String SH_WITH_COLORS = SH_COLOR + SH + SH_MSG_COLOR;
 	public static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");
-	public static final Logger LOGGER = LogManager.getLogger(AmrsatrioServer.class.getSimpleName());
-	public static final String NMS_VERSION = Utils.getVersion2();
+	public static final Logger LOGGER = LogManager.getLogger(ServerPlugin.class.getSimpleName());
+	public static final String NMS_VERSION = getVersion2();
 	public static final String SUPPORTED_NMS_VERSION = "v1_11_R1";
 	private static final String[] PW_GRADES = {"NA", "Unacceptable", "Very weak", "Poor", "Average", "Good", "Very Good", "Excellent"};
 	private static final int MIN_PW_GRADE = 1;
 	private static final ScriptEngine JS_ENGINE = new ScriptEngineManager().getEngineByName("js");
-	private static final List<UUID> ALLOWED_TO_KICK_BAN_DEOP = Lists.newArrayList(UUID.fromString("77a3d6a0-49d5-45eb-bcb8-48dc26303c43"), UUID.fromString("beaa6a95-f065-4b75-883f-894488ec133e"));
-	private static final List<String> PASSWORDED_COMMANDS = Lists.newArrayList("password", "anon", "togglebantnt", "togglechatcaps", "restart", "stop", "toggleverbose"); // , "ban", "kick", "op", "deop"
+	//	private static final List<UUID> ALLOWED_TO_KICK_BAN_DEOP = Lists.newArrayList(UUID.fromString("77a3d6a0-49d5-45eb-bcb8-48dc26303c43"), UUID.fromString("beaa6a95-f065-4b75-883f-894488ec133e"));
+	private static final List<String> PASSWORDED_COMMANDS = Lists.newArrayList("password", /*"anon", */"togglebantnt", "togglechatcaps", "restart", "stop", "toggleverbose", "toggledmgsummary"); // , "ban", "kick", "op", "deop"
 	private static final Function<GameProfile, IChatBaseComponent> GAME_PROFILE_TO_NAME_FUNCTION = new Function<GameProfile, IChatBaseComponent>() {
 		@Nullable
 		@Override
@@ -112,44 +106,47 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			return new ChatComponentText(gameprofile.getName()).setChatModifier(new ChatModifier().setChatHoverable(new ChatHoverable(EnumHoverAction.SHOW_TEXT, new ChatComponentText(gameprofile.getName() + "\n" + ChatColor.GRAY + gameprofile.getId()))).setChatClickable(new ChatClickable(EnumClickAction.SUGGEST_COMMAND, gameprofile.getId().toString())));
 		}
 	};
+	private static final Gson PLAYER_HIST_ENTRY_JSON = new GsonBuilder().registerTypeAdapter(PlayerNameHistoryEntry.class, new PlayerNameHistoryEntry.Serializer()).create();
 	public static Map<Player, PropertiesEditor> propEditInstances = new HashMap<>();
 	public static Map<Player, Authenticator> authenticatorInstances = new HashMap<>();
 	public static Map<Player, GetBannerGui> getBannerInstances = new HashMap<>();
-	public static boolean verbose = false;
 	private final PhoneMap phoneMap = new PhoneMap();
+	private static ServerPlugin instance;
 	// private BukkitTask wsTask;
 	/*
 	 * public void onDisable() { System.out.println("Stopping WebServer...");
 	 * Bukkit.getScheduler().cancelTask(wsTask.getTaskId());
 	 * Bukkit.getScheduler(). }
 	 */
-//	private static final String IP_ADDRESS = Utils.getIPAddress(true);
+//	private static final String IP_ADDRESS = getIPAddress(true);
 	private long buildDate;
 	//	private boolean anonMode = false;
 	private boolean banTNT = false;
 	private boolean chatFilterCaps = false;
 	private boolean showDamageSummary = true;
+	public boolean verbose = false;
 	private int ticker;
 	private Map<Player, List<Damage>> playerDamages = new HashMap<>();
 	private boolean isZipping;
-	private PingList pingList;
+	public PingList pingList;
 
-	public static void bcm(String a) {
-		Bukkit.broadcastMessage(String.format(SERVER_HEADER, "Server") + a);
+	public static ServerPlugin getInstance() {
+		return instance;
 	}
 
-	public static void main(String[] a) {
-	}
+//	public static void bcm(String a) {
+//		Bukkit.broadcastMessage(String.format(SH_WITH_COLORS, "Server") + a);
+//	}
 
 	public static void msg(CommandSender a, String b) {
 		msg(a, b, "Server");
 	}
 
 	public static void msg(CommandSender a, String b, String c) {
-		a.sendMessage(String.format(SERVER_HEADER, c) + b);
+		a.sendMessage(String.format(SH_WITH_COLORS, c) + b);
 	}
 
-	public static void msg(CommandSender a, String[] b) {
+	public static void msg(CommandSender a, String... b) {
 		for (String i : b) {
 			msg(a, i);
 		}
@@ -161,58 +158,19 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 //		}
 //	}
 
-	public static void sandbox() {
-		throw new CommandException("This command is very risky, extra extra extra experimental, and a catastrophic failure will occur in this world upon executing this command. If you want to try this command, install this plugin outside this server.");
-	}
-
-	private static net.minecraft.server.v1_11_R1.ItemStack getTippedArrowItem(TippedArrow tippedarrow) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-		// TODO This is NMS reflection
-		Object object = Utils.getHandle(tippedarrow);
-		Method method = object.getClass().getDeclaredMethod("j");
-		method.setAccessible(true);
-		return (net.minecraft.server.v1_11_R1.ItemStack) method.invoke(object);
-	}
-
-	private static Collection<MinecraftKey> getAvailableLootTables(CommandSender commandsender) {
-		List<MinecraftKey> list = new ArrayList<>();
-		list.addAll(LootTables.a());
-
-		if (!(commandsender instanceof Player)) {
-			return list;
-		}
-
-		File file = new File(new File(((Player) commandsender).getWorld().getWorldFolder(), "data"), "loot_tables");
-
-		if (!file.exists() || file.isFile()) {
-			return list;
-		}
-
-		for (File file1 : file.listFiles()) {
-			if (file1.isDirectory()) {
-				for (File file2 : file1.listFiles()) {
-					if (file2.isFile() && file2.getName().endsWith(".json")) {
-						list.add(new MinecraftKey(file1.getName(), file2.getName().substring(0, file2.getName().length() - ".json".length())));
-					}
-				}
-			}
-		}
-
-		return list;
-	}
-
 	public static void validateOp(CommandSender commandsender) {
 		if (!commandsender.isOp()) {
-			throw new CommandException("You do not have sufficient privileges to execute this command.");
+			throw new CommandException("You do not have sufficient privileges to execute this command");
 		}
 	}
 
 	public static void validatePlayer(CommandSender commandsender) {
 		if (!(commandsender instanceof Player)) {
-			throw new CommandException("Only players can execute this command.");
+			throw new CommandException(new NonPlayerException().getMessage());
 		}
 	}
 
-	private static void deprecate(Player player, String s, String s1, String... astring) {
+	private static void deprecate(CommandSender commandsender, String s, String s1, String... astring) {
 		if (s.equals(s1)) {
 			String[] astring1 = new String[astring.length];
 
@@ -220,7 +178,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 				astring1[i] = ChatColor.BOLD + "/" + astring[i] + ChatColor.RESET + SH_MSG_COLOR;
 			}
 
-			msg(player, ChatColor.BOLD + "/" + s + ChatColor.RESET + SH_MSG_COLOR + " is now deprecated. Use " + Utils.joinNiceString(astring1, "or") + " instead.");
+			msg(commandsender, ChatColor.BOLD + "/" + s + ChatColor.RESET + SH_MSG_COLOR + " is now deprecated. Use " + joinNiceString(astring1, "or") + " instead.");
 		}
 	}
 
@@ -237,7 +195,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		} else {
 			if (chatFilterCaps && countUppercaseLetters(asyncplayerchatevent.getMessage()) > 4) {
 				asyncplayerchatevent.setMessage(asyncplayerchatevent.getMessage().toLowerCase());
-				msg(player, "Minimize your usage of uppercase letters!");
+				msg(player, Messages.ChatCaps.WARN_MINIMIZE_CAPS);
 			}
 		}
 
@@ -259,19 +217,19 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			}
 
 			//msg(entity, ((CraftEntity) entitydamagebyentityevent.getEntity()).getHandle().toString());
-			IChatBaseComponent ichatbasecomponent = new ChatComponentText("\u00a7b<-- ").addSibling(damageSummary(new Damage(entitydamagebyentityevent), true)).addSibling(new ChatComponentText(" \u00a7b-->"));
-			Utils.actionBarWithoutReflection((Player) entity, ichatbasecomponent);
+			IChatBaseComponent ichatbasecomponent = new ChatComponentText("\u00a7b<-- ").addSibling(damageSummary(new Damage(entitydamagebyentityevent), true)).a(" \u00a7b-->");
+			actionBarWithoutReflection((Player) entity, ichatbasecomponent);
 		} catch (Throwable throwable) {
-			Utils.broke(throwable);
+			broke(throwable);
 		}
 	}
 
 	@EventHandler
 	public void a(SignChangeEvent signchangeevent) {
-		int i = 0;
+		String[] lines = signchangeevent.getLines();
 
-		for (String s : signchangeevent.getLines()) {
-			signchangeevent.setLine(i++, ChatColor.translateAlternateColorCodes('&', s));
+		for (int i = 0; i < lines.length; i++) {
+			signchangeevent.setLine(i, ChatColor.translateAlternateColorCodes('&', lines[i]));
 		}
 	}
 
@@ -288,14 +246,14 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 				}
 			}
 
-			String msg = ChatColor.GREEN.toString() + entityexplodeevent.blockList().size() + " block(s) are prevented from being destroyed!";
+			StringBuilder stringbuilder = new StringBuilder(ChatColor.GREEN + String.format(Messages.BanTnt.PREVENTED_BLOCKS, entityexplodeevent.blockList().size()));
 
 			if (i > 0) {
-				msg += i + " primed TNTs are also removed!";
+				stringbuilder.append(String.format(Messages.BanTnt.REMOVED_TNTS, i));
 			}
 
 			for (Player player : entityexplodeevent.getEntity().getWorld().getPlayers()) {
-				Utils.actionBar(player, msg);
+				actionBarWithoutReflection(player, stringbuilder.toString());
 			}
 		}
 	}
@@ -350,7 +308,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 				getBannerInstances.get(player).handle(inventoryclickevent);
 			}
 		} catch (Throwable e) {
-			Utils.broke(e);
+			broke(e);
 		}
 	}
 
@@ -406,7 +364,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			getServer().getWorlds().remove(world);
 		}
 
-		Utils.updateHF(playerchangedworldevent.getPlayer());
+		updateHF(playerchangedworldevent.getPlayer());
 	}
 
 	@EventHandler
@@ -438,7 +396,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 				return;
 			}
 
-			playerdeathevent.getEntity().sendMessage("\u00a72--- Damage summary since your last death (" + Utils.timeStringFromTicks(playerdeathevent.getEntity().getStatistic(Statistic.TIME_SINCE_DEATH)) + ") ---");
+			playerdeathevent.getEntity().sendMessage(ChatColor.DARK_GREEN + "--- " + Messages.DamageSummary.TITLE + " (" + timeStringFromTicks(playerdeathevent.getEntity().getStatistic(Statistic.TIME_SINCE_DEATH)) + ") ---");
 			int i = 1;
 
 			for (Damage damage : playerDamages.get(playerdeathevent.getEntity())) {
@@ -447,7 +405,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 			playerDamages.remove(playerdeathevent.getEntity());
 		} catch (Throwable e) {
-			Utils.broke(e);
+			broke(e);
 		}
 	}
 
@@ -461,7 +419,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 //			playerjoinevent.setJoinMessage(playerjoinevent.getJoinMessage().replaceAll(player.getName(), player.getDisplayName()));
 //		}
 
-		Utils.updateHF(player);
+		updateHF(player);
 
 		if (getConfig().getBoolean("welcome-state")) {
 			welcomeTitle(player);
@@ -474,7 +432,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	public void a(AsyncPlayerPreLoginEvent asyncplayerpreloginevent) {
 		Result result = asyncplayerpreloginevent.getResult();
 		String s = asyncplayerpreloginevent.getName();
-		Bukkit.broadcastMessage(ChatColor.GRAY + (result != Result.ALLOWED ? String.format("Unfortunately, %s is refused to log in because %s", s, Utils.getRefuseMessage(result)) : s + " is logging in..."));
+		Bukkit.broadcastMessage(ChatColor.GRAY + (result != Result.ALLOWED ? String.format("Unfortunately, %s is refused to log in because %s", s, getRefuseMessage(result)) : s + " is logging in..."));
 	}
 
 	@EventHandler
@@ -516,7 +474,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 			InetAddress inetaddress = serverlistpingevent.getAddress();
 			String s = inetaddress.getHostAddress();
-			ichatbasecomponent.addSibling(new ChatMessage("%s%s pinged the server for the %s time today", players == null ? "" : "@", new ChatComponentText(s).setChatModifier(new ChatModifier().setChatClickable(new ChatClickable(EnumClickAction.OPEN_URL, "http://whatismyipaddress.com/ip/" + s)).setChatHoverable(new ChatHoverable(EnumHoverAction.SHOW_TEXT, new ChatComponentText("Click for more info on this IP address")))), Utils.ordinal(pingentry.getHowManyTimesPingedToday())).setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY)));
+			ichatbasecomponent.addSibling(new ChatMessage("%s%s pinged the server for the %s time today", players == null ? "" : "@", new ChatComponentText(s).setChatModifier(new ChatModifier().setChatClickable(new ChatClickable(EnumClickAction.OPEN_URL, "http://whatismyipaddress.com/ip/" + s)).setChatHoverable(new ChatHoverable(EnumHoverAction.SHOW_TEXT, new ChatComponentText("Click for more info on this IP address"))).setUnderline(true)), ordinal(pingentry.getHowManyTimesPingedToday())).setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY)));
 			((CraftServer) getServer()).getHandle().sendMessage(ichatbasecomponent);
 		} catch (Throwable e) {
 			LOGGER.warn("Unexpected error occurred in ping event", e);
@@ -530,37 +488,38 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 		String[] astring = new String[pingentry.names.size()];
 		Arrays.fill(astring, "%s");
-		return new ChatMessage(Utils.joinNiceString(astring, "or"), Lists.transform(new ArrayList<>(pingentry.names), GAME_PROFILE_TO_NAME_FUNCTION).toArray(new IChatBaseComponent[pingentry.names.size()]));
+		return new ChatMessage(joinNiceString(astring, "or"), Lists.transform(new ArrayList<>(pingentry.names), GAME_PROFILE_TO_NAME_FUNCTION).toArray(new IChatBaseComponent[pingentry.names.size()]));
 	}
 
 	private void changePassword(CommandSender commandsender, String[] astring) throws NoSuchAlgorithmException {
 		if (astring[0].equals("clear")) {
 			if (getConfig().getString("password").isEmpty()) {
-				msg(commandsender, "You have not yet set a password.");
+				msg(commandsender, Messages.Authenticator.NOT_YET_SET);
 				return;
 			}
 
 			getConfig().set("password", "");
 			saveConfig();
-			msg(commandsender, "\u00a7aSuccessfully cleared your password. Warning: anyone can use the password protected features.");
+			msg(commandsender, ChatColor.GREEN + Messages.Authenticator.CLEARED_PASSWORD);
 		} else {
 			if (!astring[0].equals(astring[1])) {
-				msg(commandsender, "\u00a7cNew password and confirm password doesn't match.");
-				Utils.tripleBeepSamePitch(commandsender, this);
+				msg(commandsender, ChatColor.RED + Messages.Authenticator.NOT_MATCH);
+				tripleBeepSamePitch(commandsender, this);
 				return;
 			}
 
 			int i = Authenticator.getPasswordStrength(astring[0]);
+			String pwStrength = String.format(Messages.Authenticator.STRENGTH, PW_GRADES[i]);
 
 			if (i < MIN_PW_GRADE) {
-				msg(commandsender, new String[]{"\u00a7cYour chosen password is too weak. Passwords should be mixed-case, contain both letters and numbers, and should ideally be more than 8 characters in length and contain non-alphanumeric characters. Certain common passwords are also prohibited.", "Strength: " + PW_GRADES[i]});
-				Utils.tripleBeepSamePitch(commandsender, this);
+				msg(commandsender, ChatColor.RED + Messages.Authenticator.TOO_WEAK, pwStrength);
+				tripleBeepSamePitch(commandsender, this);
 				return;
 			}
 
-			getConfig().set("password", Utils.sha1(astring[0]));
+			getConfig().set("password", sha1(astring[0]));
 			saveConfig();
-			msg(commandsender, "\u00a7aSuccessfully changed your password. Strength: " + PW_GRADES[i]);
+			msg(commandsender, ChatColor.GREEN + Messages.Authenticator.CHANGED_PASSWORD + ' ' + pwStrength);
 		}
 	}
 
@@ -583,7 +542,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		if (entitydamageevent instanceof EntityDamageByEntityEvent) {
 			EntityDamageByEntityEvent e = (EntityDamageByEntityEvent) entitydamageevent;
 			Entity damager = e.getDamager();
-			String fromto = "\u00a77" + (fromMe ? "to" : "from") + "\u00a7r";
+			String fromTo = "\u00a77" + (fromMe ? "to" : "from") + "\u00a7r";
 			boolean flag = true;
 			//Entity fromto2 = fromMe ? e.getEntity() : damager;
 			//System.out.println(fromto2);
@@ -597,7 +556,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 				if (prj.getShooter() instanceof Entity) {
 					damager = (Entity) prj.getShooter();
 				} else if (prj.getShooter() instanceof BlockProjectileSource) {
-					icbc.addSibling(new ChatComponentText(" \u00a77from a\u00a7r " + ((BlockProjectileSource) prj.getShooter()).getBlock().getType().toString().toLowerCase().replaceAll("_", " ")));
+					icbc.a(" \u00a77from a\u00a7r " + ((BlockProjectileSource) prj.getShooter()).getBlock().getType().toString().toLowerCase().replaceAll("_", " "));
 					flag = false;
 				} else {
 					flag = false;
@@ -630,7 +589,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			Entity fromto1 = fromMe ? e.getEntity() : damager;
 
 			if (flag) {
-				icbc.addSibling(new ChatMessage(" %s %s", fromto, damager != e.getEntity() ? ((CraftEntity) fromto1).getHandle().getScoreboardDisplayName() : "you"));
+				icbc.addSibling(new ChatMessage(" %s %s", fromTo, damager != e.getEntity() ? ((CraftEntity) fromto1).getHandle().getScoreboardDisplayName() : "you"));
 			}
 
 			if (entitydamageevent.getCause() == DamageCause.FALLING_BLOCK) {
@@ -649,11 +608,11 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			}
 		}
 
-		icbc.addSibling(new ChatComponentText(" \u00a7c-" + HEALTH_DECIMAL_FORMAT.format(entitydamageevent.getFinalDamage())));
+		icbc.a(" \u00a7c-" + HEALTH_DECIMAL_FORMAT.format(entitydamageevent.getFinalDamage()));
 		long l = System.currentTimeMillis() - damage.b;
 
 		if (l >= 1000) {
-			icbc.addSibling(new ChatComponentText(String.format(" \u00a79%ss", HEALTH_DECIMAL_FORMAT.format((double) l / 1000d))));
+			icbc.a(String.format(" \u00a79%ss", HEALTH_DECIMAL_FORMAT.format((double) l / 1000d)));
 		}
 
 		return icbc;
@@ -684,44 +643,41 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		return a(w2, new Random(), new ChunkCoordIntPair(b), (StructureStart) method.invoke(a, cc.getX(), cc.getZ()));
 	}
 
-	public PlayerNameHistory[] getPNameHistory(UUID a) throws Exception {
-		String raw = Utils.readUrl("https://api.mojang.com/user/profiles/" + a.toString().replaceAll("-", "") + "/names");
-		if (raw.length() == 0) {
-			throw new RuntimeException("The server responsed nothing. Try deleting the user cache.");
+	public PlayerNameHistoryEntry[] getPNameHistory(UUID a) throws IOException {
+		String s = readUrl("https://api.mojang.com/user/profiles/" + a.toString().replaceAll("-", "") + "/names");
+
+		if (s.length() == 0) {
+			throw new RuntimeException("The server responded nothing. Try deleting the user cache.");
 		}
-		return new Gson().fromJson(raw, PlayerNameHistory[].class);
+
+		return PLAYER_HIST_ENTRY_JSON.fromJson(s, PlayerNameHistoryEntry[].class);
 	}
 
-	public void listPNameHistory(final CommandSender a, final String b) {
+	public void listPNameHistory(final CommandSender commandsender, final String s) {
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
-				if (!Bukkit.getOnlineMode()) {
-					msg(a, "\u00a7cThis server must be in online mode!");
-					return;
-				}
-
-				msg(a, "\u00a72Fetching player name history of \u00a7l" + b + "\u00a7r...");
-				GameProfile gp = ((CraftServer) Bukkit.getServer()).getHandle().getServer().getUserCache().getProfile(b);
-
-				if (gp == null) {
-					msg(a, "\u00a7cNon-existent player: " + b);
-					return;
-				}
-
-				int c = 1;
-
 				try {
-					UUID uuid = gp.getId();
-					msg(a, b + "'s UUID is " + uuid);
-
-					for (PlayerNameHistory i : getPNameHistory(uuid)) {
-						String d = "\u00a76" + c++ + ".\u00a7r \u00a7e" + i.name + "\u00a7r ";
-						d += i.changedToAt > 0 ? "on \u00a7e" + SDF.format(i.changedToAt) : "initial name";
-						a.sendMessage(d);
+					if (!Bukkit.getOnlineMode()) {
+						throw new CommandException(Messages.PlayerHist.OFF_MODE);
 					}
+
+					msg(commandsender, String.format(Messages.PlayerHist.HEADER, s));
+					GameProfile gameprofile = ((CraftServer) Bukkit.getServer()).getHandle().getServer().getUserCache().getProfile(s);
+
+					if (gameprofile == null) {
+						throw new CommandException(Messages.PlayerHist.NOT_FOUND);
+					}
+
+					UUID uuid = gameprofile.getId();
+					msg(commandsender, String.format(Messages.PlayerHist.UUID_IS, s, uuid));
+					PlayerNameHistoryEntry[] pNameHistory = getPNameHistory(uuid);
+					Utils.printListNumbered(commandsender, Arrays.asList(pNameHistory));
+				} catch (CommandException e) {
+					msg(commandsender, ChatColor.RED + e.getMessage(), "Error");
 				} catch (Throwable e) {
-					Utils.broke(e);
+					LOGGER.warn("Failed to fetch player name history of player " + s, e);
+					msg(commandsender, ChatColor.RED + "Something went wrong:\n" + e, "Error");
 				}
 			}
 		}).start();
@@ -746,14 +702,14 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	@Override
-	public boolean onCommand(final CommandSender commandSender, Command b, String c, final String[] astring) {
+	public boolean onCommand(final CommandSender commandsender, Command command, String s, final String[] astring) {
 		try {
-			boolean isPlayer = commandSender instanceof Player;
+			boolean isPlayer = commandsender instanceof Player;
 			Player p = null;
 			if (isPlayer) {
-				p = (Player) commandSender;
+				p = (Player) commandsender;
 			}
-			switch (b.getName().toLowerCase()) {
+			switch (command.getName().toLowerCase()) {
 //				case "anon":
 //					getConfig().set("anon-players", anon = !anon);
 //					saveConfig();
@@ -767,113 +723,52 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 //					msg(commandSender, "Mask players with their IP address: " + disabledOrEnabled(anon));
 //					return true;
 //
-				case "sysinfo":
-					if (commandSender instanceof BlockCommandSender) {
-						throw new CommandException("Command blocks are not allowed to execute this command");
-					}
-
-					validateOp(commandSender);
-					String color = "\u00a77";
-					commandSender.sendMessage("\u00a72--- System information ---");
-					List<String> props = new ArrayList<>();
-					SystemInfo sys = new SystemInfo();
-					HardwareAbstractionLayer hal = sys.getHardware();
-					props.add(color + "Processor: §r" + hal.getProcessor().getLogicalProcessorCount() + "x " + hal.getProcessor().getName());
-					props.add(color + "RAM: §r" + Utils.freeOf(hal.getMemory().getAvailable(), hal.getMemory().getTotal()));
-					OperatingSystem os = sys.getOperatingSystem();
-					props.add(color + "Operating system: §r");
-					props.add(color + " Name: §r" + os.getManufacturer() + " " + os.getFamily());
-					props.add(color + " Version: §r" + os.getVersion());
-					props.add(color + "Drives:");
-
-					for (OSFileStore f : sys.getHardware().getFileStores()) {
-						if (!f.getName().isEmpty()) {
-							props.add(color + " " + f.getName() + ": §r" + Utils.freeOf(f.getUsableSpace(), f.getTotalSpace()));
-						}
-					}
-
-					//props.add(Arrays.toString(sys.getHardware().getNetworkIFs()));
-					commandSender.sendMessage(props.toArray(new String[props.size()]));
-					return true;
-
 				case "togglebantnt":
 					getConfig().set("disable-tnt", banTNT = !banTNT);
 					saveConfig();
-					msg(commandSender, "Prevent TNT interacting with blocks: " + Utils.disabledOrEnabled(banTNT));
+					msg(commandsender, "Prevent TNT interacting with blocks: " + disabledOrEnabled(banTNT));
 					return true;
 
 				case "toggleverbose":
 					getConfig().set("broadcast-exceptions", verbose = !verbose);
 					saveConfig();
-					msg(commandSender, "Broadcast plugin errors: " + Utils.disabledOrEnabled(verbose));
-					return true;
-
-				case "tpworld":
-					validatePlayer(commandSender);
-
-					if (astring.length == 0) {
-						throw new WrongUsageException();
-					}
-
-					String worldname = Utils.buildString(astring, 0);
-					String worldbefore = p.getWorld().getName();
-					List<String> exworlds = Utils.getExistingWorlds();
-
-					if (!exworlds.contains(worldname)) {
-						msg(commandSender, "That world doesn't exist. Existing worlds are:", "Teleporter");
-						Utils.printListNumbered(commandSender, exworlds);
-
-						return true;
-					}
-
-					msg(commandSender, "Teleporting you to world \u00a7l" + worldname, "Teleporter");
-					World w = getServer().getWorld(worldname);
-
-					if (w == null) {
-						getServer().getWorlds().add(w = getServer().createWorld(new WorldCreator(worldname)));
-					}
-
-					p.teleport(new Location(w, w.getSpawnLocation().getX(), w.getSpawnLocation().getY(), w.getSpawnLocation().getZ()));
-//					msg(commandSender, "WARNING: This feature is very experimental. The scoreboard in " + worldbefore + " are mixed with the scoreboard in " + worldname + ". So don't try to teleport to lots-of-command-blocks maps!");
-					String s = "Teleported " + commandSender.getName() + " to world " + ChatColor.BOLD + worldname + ChatColor.RESET;
-					msg(commandSender, s, "Teleporter");
-					Command.broadcastCommandMessage(commandSender, s, false);
+					msg(commandsender, "Broadcast plugin errors: " + disabledOrEnabled(verbose));
 					return true;
 
 				case "togglechatcaps":
 					getConfig().set("chat-filter-caps", chatFilterCaps = !chatFilterCaps);
 					saveConfig();
-					msg(commandSender, "Transform chat messages into lowercase when more than 4 characters are uppercase: " + Utils.disabledOrEnabled(chatFilterCaps));
+					msg(commandsender, "Transform chat messages into lowercase when more than 4 characters are uppercase: " + disabledOrEnabled(chatFilterCaps));
 					return true;
 
 				case "nameitem":
-					validatePlayer(commandSender);
+					validatePlayer(commandsender);
 
 					if (astring.length == 0) {
-						throw new WrongUsageException();
+						throw new WrongUsageException(command, s);
 					}
 
 					ItemStack curitem = p.getInventory().getItemInMainHand();
 					ItemMeta im = curitem.getItemMeta();
-					im.setDisplayName(Utils.buildString(astring, 0).replaceAll("&", "\u00a7"));
+					im.setDisplayName(buildString(astring, 0).replaceAll("&", "\u00a7"));
 					curitem.setItemMeta(im);
 					p.getInventory().setItemInMainHand(curitem);
-					msg(commandSender, "Formatted your item name.");
+					msg(commandsender, "Formatted your item name.");
 					return true;
 
 				case "colorguide":
-					commandSender.sendMessage(new String[]{"§nMinecraft Formatting", "", "§00 §11 §22 §33", "§44 §55 §66 §77", "§88 §99 §aa §bb", "§cc §dd §ee §ff", "", "k §kMinecraft", "l §lMinecraft", "m §mMinecraft", "n §nMinecraft", "o §oMinecraft", "r §rMinecraft"});
+					commandsender.sendMessage(new String[]{"§nMinecraft Formatting", "", "§00 §11 §22 §33", "§44 §55 §66 §77", "§88 §99 §aa §bb", "§cc §dd §ee §ff", "", "k §kMinecraft", "l §lMinecraft", "m §mMinecraft", "n §nMinecraft", "o §oMinecraft", "r §rMinecraft"});
 					return true;
 
 				case "download":
-					validatePlayer(commandSender);
-					validateOp(commandSender);
+					validatePlayer(commandsender);
+					validateOp(commandsender);
 
 					if (astring.length == 0) {
-						throw new WrongUsageException();
+						throw new WrongUsageException(command, s);
 					}
 
-					URL theURL = new URL(Utils.buildString(astring, 0));
+					URL theURL = new URL(buildString(astring, 0));
 					File fl = new File(getDataFolder(), "downloads");
 
 					if (!fl.exists()) {
@@ -892,20 +787,23 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 						public void onCompleted(File a) {
 							bb.setVisible(false);
 							long time = System.currentTimeMillis() - start;
-							msg(theP, String.format("Downloaded %s (%s at %s/s).", a.getName(), Utils.fancyTime(time, true), Utils.formatFileSize(a.length() / time * 1000)));
+							msg(theP, String.format("Downloaded %s (%s at %s/s).", a.getName(), fancyTime(time, true), formatFileSize(a.length() / time * 1000)));
+
 							try {
 								if (FilenameUtils.getExtension(a.getName()).equalsIgnoreCase("zip")) {
-									theP.playSound(theP.getLocation(), "minecraft:entity.experience_orb.pickup", 3e7f, .5f);
+									theP.playSound(theP.getLocation(), "minecraft:entity.experience_orb.pickup", 1.0F, .5f);
 									msg(theP, "Extracting it...");
-									Utils.extractZip(a, new File(a.getParentFile(), FilenameUtils.removeExtension(a.getName())));
+									extractZip(a, new File(a.getParentFile(), FilenameUtils.removeExtension(a.getName())));
 								}
+
 								msg(theP, "\u00a7aOperation completed");
 							} catch (Throwable e) {
-								Utils.broke(e);
+								broke(e);
 								msg(theP, "\u00a7cOperation failed, see above for details");
 							}
-							Utils.jsonMsg(theP, Utils.clickBoxJson("Open file location", "run_command", "/ls " + a.getParentFile().getAbsolutePath().replace("\\", "\\\\")));
-							theP.playSound(theP.getLocation(), "minecraft:entity.player.levelup", 3e7f, .5f);
+
+							getListener(commandsender).sendMessage(clickBoxJson("Open file location", new ChatClickable(EnumClickAction.RUN_COMMAND, "/ls " + a.getParentFile().getAbsolutePath().replace("\\", "\\\\")), false));
+							theP.playSound(theP.getLocation(), "minecraft:entity.player.levelup", 1.0F, .5f);
 						}
 
 						@Override
@@ -923,14 +821,14 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 							boolean unknownSize = b < 0;
 							String name = c.getName();
 							String bef = String.format("%s -", name);
-							String dled = Utils.formatFileSize(a);
-							String ttl = Utils.formatFileSize(b);
+							String dled = formatFileSize(a);
+							String ttl = formatFileSize(b);
 							int per = (int) (progd * 100D);
 							if (oldPer != per) {
-								theP.playSound(theP.getLocation(), "minecraft:block.note.hat", 3e7f, 2f);
+								theP.playSound(theP.getLocation(), "minecraft:block.note.hat", 1.0F, 2f);
 							}
 							oldPer = per;
-							String spd = Utils.formatFileSize(a / (System.currentTimeMillis() - start) * 1000);
+							String spd = formatFileSize(a / (System.currentTimeMillis() - start) * 1000);
 							bb.setProgress(unknownSize ? 0D : progd);
 							if (unknownSize) {
 								bb.setTitle(String.format(bef + "%s (avg. %s/s)", dled, spd));
@@ -948,11 +846,11 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					return true;
 
 				case "editsign":
-					validatePlayer(commandSender);
+					validatePlayer(commandsender);
 					RayTrace raytrace = RayTrace.a(p, 5.0D);
 
 					if (raytrace.a() && (raytrace.c().getType() == Material.SIGN_POST || raytrace.c().getType() == Material.WALL_SIGN)) {
-						/*if (astring.length < 3) throw new WrongUsageException();
+						/*if (astring.length < 3) throw new WrongUsageException(b, c);
 						int line = CommandAbstract.a(astring[0], 1, 4) - 1;
 						ste.lines[line] = ste.lines[line];*/
 						EntityPlayer entityplayer = ((CraftPlayer) p).getHandle();
@@ -961,38 +859,38 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 						tileentitysign.a(entityplayer);
 						entityplayer.playerConnection.sendPacket(new PacketPlayOutOpenSignEditor(raytrace.f()));
 					} else {
-						msg(commandSender, "You're not pointing at a sign.");
+						msg(commandsender, "You're not pointing at a sign.");
 					}
 
 					return true;
 
 				case "eval":
-					validateOp(commandSender);
+					validateOp(commandsender);
 
 					if (astring.length == 0) {
-						throw new WrongUsageException();
+						throw new WrongUsageException(command, s);
 					}
 
-					String code = Utils.buildString(astring, 0);
-					commandSender.sendMessage("\u00a77<- " + code);
+					String code = buildString(astring, 0);
+					commandsender.sendMessage("\u00a77<- " + code);
 
 					try {
-						commandSender.sendMessage("-> " + JS_ENGINE.eval(code));
+						commandsender.sendMessage("-> " + JS_ENGINE.eval(code));
 					} catch (ScriptException e) {
-						commandSender.sendMessage("\u00a7c" + e.getMessage().replaceAll("\r", "\n"));
+						commandsender.sendMessage(ChatColor.RED + e.getMessage().replaceAll("\r", "\n"));
 					}
 
 					return true;
 
 				case "flyspeed":
-					validatePlayer(commandSender);
+					validatePlayer(commandsender);
 					openFlySpeedGui(p);
 					return true;
 
 				case "loottable":
-					validatePlayer(commandSender);
+					validatePlayer(commandsender);
 					if (astring.length == 0) {
-						throw new WrongUsageException();
+						throw new WrongUsageException(command, s);
 					}
 					if (p.getGameMode() != GameMode.CREATIVE) {
 						throw new CommandException("No taking items from loot tables!");
@@ -1007,35 +905,25 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 				case "password":
 					if (astring.length == 2 || astring.length == 1 && astring[0].equals("clear")) {
-						changePassword(commandSender, astring);
+						changePassword(commandsender, astring);
 						return true;
 					} else {
-						throw new WrongUsageException();
+						throw new WrongUsageException(command, s);
 					}
-//				case "pathdebug":
-//					throw new CommandException("I'm now still figuring out on how to re-create the debug path things like in the 1.9.2 snapshots.");
+
 				case "playerhist":
 					if (astring.length == 0) {
-						throw new WrongUsageException("No player name");
+						throw new WrongUsageException("No player name", command, s);
 					}
 
-					listPNameHistory(commandSender, astring[0]);
+					listPNameHistory(commandsender, astring[0]);
 					return true;
-				case "testselector-bukkit":
-					if (astring.length == 0 || !(commandSender instanceof Player)) {
-						throw new WrongUsageException();
-					}
-//					Utils.noReflection(commandSender);
-					commandSender.sendMessage("DEBUG " + Arrays.toString(astring));
-					commandSender.sendMessage("DEBUG " + Utils.getListener(commandSender));
-					msg(commandSender, "Selector expression " + astring[0] + " matches " + PlayerSelector.getPlayers(((CraftPlayer) commandSender).getHandle(), astring[0], net.minecraft.server.v1_11_R1.Entity.class).size() + " entities");
-					return true;
-//					throw new CommandException("This command is broken!");
+
 				case "text":
-					validatePlayer(commandSender);
+					validatePlayer(commandsender);
 
 					if (astring.length == 0) {
-						throw new WrongUsageException("Missing text argument");
+						throw new WrongUsageException("Missing text argument", command, s);
 					}
 
 					StringBuilder text = new StringBuilder();
@@ -1050,45 +938,45 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 				case "toggledmgsummary":
 					getConfig().set("show-damage-summary", showDamageSummary = !showDamageSummary);
 					saveConfig();
-					msg(commandSender, "Show damage summary for all players: " + Utils.disabledOrEnabled(showDamageSummary));
+					msg(commandsender, "Show damage summary for all players: " + disabledOrEnabled(showDamageSummary));
 					return true;
 
 				case "wsubtitle":
-					validateOp(commandSender);
-					String ttl = Utils.buildString(astring, 0);
+					validateOp(commandsender);
+					String ttl = buildString(astring, 0);
 					getConfig().set("welcome-subtitle", ttl);
 					saveConfig();
-					msg(commandSender, "Saved the welcome subtitle text. " + ttl.replaceAll("&", "\u00a7"));
+					msg(commandsender, "Saved the welcome subtitle text. " + ttl.replaceAll("&", "\u00a7"));
 					return true;
 
 				case "wtest":
 					if (!isPlayer || astring.length == 1 && astring[0].equals("-t")) {
-						msg(commandSender, new String[]{"This is the welcome title message:", getConfig().getString("welcome-title").replaceAll("&", "\u00a7"), getConfig().getString("welcome-subtitle").replaceAll("&", "\u00a7")});
+						msg(commandsender, "This is the welcome title message:", getConfig().getString("welcome-title").replaceAll("&", "\u00a7"), getConfig().getString("welcome-subtitle").replaceAll("&", "\u00a7"));
 						return true;
 					}
 
 					welcomeTitle(p);
-					msg(commandSender, "That's the welcome title.");
+					msg(commandsender, "That's the welcome title.");
 					return true;
 
 				case "wtitle":
-					validateOp(commandSender);
-					String stl = Utils.buildString(astring, 0);
+					validateOp(commandsender);
+					String stl = buildString(astring, 0);
 					getConfig().set("welcome-title", stl);
 					saveConfig();
-					msg(commandSender, "Saved the welcome title text. " + stl.replaceAll("&", "\u00a7"));
+					msg(commandsender, "Saved the welcome title text. " + stl.replaceAll("&", "\u00a7"));
 					return true;
 
 				case "wtoggle":
-					validateOp(commandSender);
+					validateOp(commandsender);
 					boolean state = getConfig().getBoolean("welcome-state");
 					getConfig().set("welcome-state", state = !state);
 					saveConfig();
-					msg(commandSender, "Show welcome title to joined players: " + Utils.disabledOrEnabled(state));
+					msg(commandsender, "Show welcome title to joined players: " + disabledOrEnabled(state));
 					return true;
 
 				case "zipserver":
-					validateOp(commandSender);
+					validateOp(commandsender);
 					//if (!(a instanceof Console))
 					//throw new CommandException("This command is currently screwing up this server's machine. Use McMyAdmin instead to archive the server.");
 					if (!isZipping) {
@@ -1097,156 +985,156 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 							@Override
 							public void run() {
 								try {
-									commandSender.sendMessage("Starting zip of the server folder");
+									commandsender.sendMessage("Starting zip of the server folder");
 									long time = System.currentTimeMillis();
-									Utils.zip(commandSender, Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(), Utils.getTimestampedPNGFileForDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile().getParentFile()));
-									commandSender.sendMessage("Zip completed in " + DurationFormatUtils.formatDurationWords(System.currentTimeMillis() - time, true, true));
+									zip(commandsender, Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(), getTimestampedPNGFileForDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile().getParentFile()));
+									commandsender.sendMessage("Zip completed in " + DurationFormatUtils.formatDurationWords(System.currentTimeMillis() - time, true, true));
 								} catch (Throwable e) {
-									Utils.broke(e);
+									broke(e);
 								}
 								isZipping = false;
 							}
 						}).start();
 					} else {
-						commandSender.sendMessage("§cArchiving the server is currently in progress.");
+						commandsender.sendMessage("§cArchiving the server is currently in progress.");
 					}
 
 					return true;
 
-				case "gen":
-					validatePlayer(commandSender);
-					validateOp(commandSender);
-
-					if (astring.length == 0) {
-						//msg(a, "TYPE ONE OF THESE AS THE 1ST ARGUMENT: icespike, fossil");
-						return true;
-					}
-
-					sandbox();
-					msg(commandSender, "Generating feature " + astring[0].toLowerCase() + ". Expect lag for a moment.");
-					Random rng = new Random();
-					// WorldGenerator gen = null;
-					// StructureGenerator gen2 = null;
-					net.minecraft.server.v1_11_R1.World w2 = ((CraftWorld) p.getWorld()).getHandle();
-					BlockPosition pb = ((CraftPlayer) p).getHandle().getChunkCoordinates();
-					StructureBoundingBox sbb = new StructureBoundingBox(Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
-					// Chunk cc = p.getLocation().getChunk();
-					boolean genSuccess = false;
-					boolean hasRes = false;
-					WorldGenerator worldgenerator = null;
-					StructureGenerator structuregenerator = null;
-					int i = 0;
-					switch (astring[0].toLowerCase()) {
-						case "icepath":
-							int i2 = 3;
-
-							if (astring.length > 1) {
-								i = Math.min(Integer.parseInt(astring[1]), 30);
-							}
-
-							worldgenerator = new WorldGenPackedIce1(i2);
-							break;
-						case "icespike":
-							worldgenerator = new WorldGenPackedIce2();
-							break;
-						case "fossil":
-							worldgenerator = new WorldGenFossils();
-							break;
-						case "bonuschest":
-							worldgenerator = new WorldGenBonusChest();
-							break;
-						case "endisland":
-							worldgenerator = new WorldGenEndIsland();
-							break;
-						case "glowstone1":
-							worldgenerator = new WorldGenLightStone1();
-							break;
-						case "monument":
-							structuregenerator = new WorldGenMonument();
-							break;
-						case "tree":
-							worldgenerator = new WorldGenTrees(false);
-							break;
-						case "dungeon":
-							worldgenerator = new WorldGenDungeons();
-							break;
-						case "clay":
-							worldgenerator = new WorldGenClay(50);
-							break;
-						case "desertwell":
-							worldgenerator = new WorldGenDesertWell();
-							break;
-						case "village":
-							if (astring.length > 1) {
-								i = Math.min(25, Integer.parseInt(astring[1]));
-							}
-
-							structuregenerator = new WorldGenVillage();
-							break;
-						case "fortress":
-							structuregenerator = new WorldGenNether();
-							break;
-						case "endcity":
-							structuregenerator = new WorldGenEndCity(null);
-							break;
-						case "stronghold":
-							structuregenerator = new WorldGenStronghold();
-							break;
-						default:
-							throw new CommandException("unknown structure name! " + astring[0]);
-						case "deserttemple":
-							genSuccess = new WorldGenPyramidPiece(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
-							hasRes = true;
-							break;
-						case "witchhut":
-							genSuccess = new WorldGenWitchHut(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
-							hasRes = true;
-							break;
-						case "jungletemple":
-							genSuccess = new WorldGenJungleTemple(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
-							hasRes = true;
-							break;
-						case "igloo":
-							genSuccess = new b(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
-							hasRes = true;
-							break;
-						case "vlight":
-							genSuccess = new WorldGenVillageLight().a(w2, rng, sbb);
-							hasRes = true;
-							break;
-					}
-
-					if (!hasRes) {
-						if (structuregenerator != null) {
-							genSuccess = genStructure(structuregenerator, pb, p.getLocation().getChunk(), i);
-						}
-					} else {
-						genSuccess = worldgenerator.generate(w2, new Random(w2.getSeed()), pb);
-					}
-
-					msg(commandSender, (genSuccess ? "\u00a7aSUCCESS" : "\u00a7cFAILED") + " \u00a7rgenerating feature");
-
-					if (genSuccess) {
-						p.playSound(p.getLocation(), "minecraft:entity.item.pickup", 3e7f, 1.0f);
-					}
-
-					return true;
+//				case "gen":
+//					validatePlayer(commandSender);
+//					validateOp(commandSender);
+//
+//					if (astring.length == 0) {
+//						//msg(a, "TYPE ONE OF THESE AS THE 1ST ARGUMENT: icespike, fossil");
+//						return true;
+//					}
+//
+//					sandbox();
+//					msg(commandSender, "Generating feature " + astring[0].toLowerCase() + ". Expect lag for a moment.");
+//					Random rng = new Random();
+//					// WorldGenerator gen = null;
+//					// StructureGenerator gen2 = null;
+//					net.minecraft.server.v1_11_R1.World w2 = ((CraftWorld) p.getWorld()).getHandle();
+//					BlockPosition pb = ((CraftPlayer) p).getHandle().getChunkCoordinates();
+//					StructureBoundingBox sbb = new StructureBoundingBox(Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+//					// Chunk cc = p.getLocation().getChunk();
+//					boolean genSuccess = false;
+//					boolean hasRes = false;
+//					WorldGenerator worldgenerator = null;
+//					StructureGenerator structuregenerator = null;
+//					int i = 0;
+//					switch (astring[0].toLowerCase()) {
+//						case "icepath":
+//							int i2 = 3;
+//
+//							if (astring.length > 1) {
+//								i = Math.min(Integer.parseInt(astring[1]), 30);
+//							}
+//
+//							worldgenerator = new WorldGenPackedIce1(i2);
+//							break;
+//						case "icespike":
+//							worldgenerator = new WorldGenPackedIce2();
+//							break;
+//						case "fossil":
+//							worldgenerator = new WorldGenFossils();
+//							break;
+//						case "bonuschest":
+//							worldgenerator = new WorldGenBonusChest();
+//							break;
+//						case "endisland":
+//							worldgenerator = new WorldGenEndIsland();
+//							break;
+//						case "glowstone1":
+//							worldgenerator = new WorldGenLightStone1();
+//							break;
+//						case "monument":
+//							structuregenerator = new WorldGenMonument();
+//							break;
+//						case "tree":
+//							worldgenerator = new WorldGenTrees(false);
+//							break;
+//						case "dungeon":
+//							worldgenerator = new WorldGenDungeons();
+//							break;
+//						case "clay":
+//							worldgenerator = new WorldGenClay(50);
+//							break;
+//						case "desertwell":
+//							worldgenerator = new WorldGenDesertWell();
+//							break;
+//						case "village":
+//							if (astring.length > 1) {
+//								i = Math.min(25, Integer.parseInt(astring[1]));
+//							}
+//
+//							structuregenerator = new WorldGenVillage();
+//							break;
+//						case "fortress":
+//							structuregenerator = new WorldGenNether();
+//							break;
+//						case "endcity":
+//							structuregenerator = new WorldGenEndCity(null);
+//							break;
+//						case "stronghold":
+//							structuregenerator = new WorldGenStronghold();
+//							break;
+//						default:
+//							throw new CommandException("unknown structure name! " + astring[0]);
+//						case "deserttemple":
+//							genSuccess = new WorldGenPyramidPiece(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+//							hasRes = true;
+//							break;
+//						case "witchhut":
+//							genSuccess = new WorldGenWitchHut(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+//							hasRes = true;
+//							break;
+//						case "jungletemple":
+//							genSuccess = new WorldGenJungleTemple(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+//							hasRes = true;
+//							break;
+//						case "igloo":
+//							genSuccess = new b(rng, pb.getX(), pb.getZ()).a(w2, rng, sbb);
+//							hasRes = true;
+//							break;
+//						case "vlight":
+//							genSuccess = new WorldGenVillageLight().a(w2, rng, sbb);
+//							hasRes = true;
+//							break;
+//					}
+//
+//					if (!hasRes) {
+//						if (structuregenerator != null) {
+//							genSuccess = genStructure(structuregenerator, pb, p.getLocation().getChunk(), i);
+//						}
+//					} else {
+//						genSuccess = worldgenerator.generate(w2, new Random(w2.getSeed()), pb);
+//					}
+//
+//					msg(commandSender, (genSuccess ? "\u00a7aSUCCESS" : "\u00a7cFAILED") + " \u00a7rgenerating feature");
+//
+//					if (genSuccess) {
+//						p.playSound(p.getLocation(), "minecraft:entity.item.pickup", 1.0F, 1.0f);
+//					}
+//
+//					return true;
 
 				case "mapgui":
-					validatePlayer(commandSender);
+					validatePlayer(commandsender);
 					return true;
 
 				case "inputphone":
-					validatePlayer(commandSender);
+					validatePlayer(commandsender);
+
 					if (astring.length < 1) {
-						throw new WrongUsageException();
+						throw new WrongUsageException(command, s);
 					}
+
 					try {
-						phoneMap.sendInput(PhoneInput.valueOf(astring[0].toUpperCase()), p);
-					} catch (IllegalArgumentException e) {
+						phoneMap.sendInput(PhoneInput.getByName(astring[0].toLowerCase()), p);
+					} catch (NullPointerException e) {
 						throw new CommandException("Unknown input: " + astring[0]);
-					} catch (IllegalStateException e) {
-						throw new CommandException(e.getMessage());
 					}
 
 					return true;
@@ -1254,22 +1142,20 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 //			return WorldGen.onCommand(commandSender, b, c, astring);
 			return false;
 		} catch (CommandException e) {
-			msg(commandSender, "\u00a7c" + e.getMessage());
-			return true;
-		} catch (WrongUsageException e) {
-			msg(commandSender, new String[]{"Bad usage", "Usage: " + b.getUsage().replaceFirst("<command>", c)});
-			return true;
-		} catch (InvocationTargetException e) {
-			Utils.broke(e.getTargetException(), " in reflection");
-			return true;
-		} catch (Throwable e) {
-			Utils.broke(e);
-			return true;
+			msg(commandsender, ChatColor.RED + e.getMessage(), "Error");
+		} /*catch (InvocationTargetException e) {
+			broke(e.getTargetException(), " in reflection");
+		}*/ catch (Throwable e) {
+			broke(e);
 		}
+
+		return true;
 	}
 
 	@Override
 	public void onEnable() {
+		instance = this;
+
 		try {
 			LOGGER.info("NMS version: " + NMS_VERSION);
 			LOGGER.info("Plugin built on " + SDF.format(buildDate = getBuildDate()));
@@ -1304,12 +1190,18 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 
 			phoneMap.init();
 
-			// Register separate class commands
+			// Register commands and permissions
+			Bukkit.getPluginManager().addPermission(new Permission("amrsatrioserver.sysinfo", Messages.Commands.PERM_SYSINFO, PermissionDefault.OP));
 			getCommand("getbanner").setExecutor(new CommandGetBanner());
 			getCommand("listfile").setExecutor(new CommandListFile());
 			getCommand("banadv").setExecutor(new CommandBanAdvanced());
-			((CraftServer) getServer()).getCommandMap().register(getName(), new CommandBlockInfo());
-			registerNmsCommand(new CommandTestSelector());
+			CommandMap commandmap = ((CraftServer) getServer()).getCommandMap();
+			commandmap.register(getName(), new CommandBlockInfo());
+			commandmap.register(getName(), new CommandGetExplorerMap());
+			commandmap.register(getName(), new CommandSystemInfo());
+//			commandmap.register(getName(), new CommandThrowException());
+			commandmap.register(getName(), new CommandTpWorld());
+			registerNmsCommand(commandmap, new CommandTestSelector());
 
 			// TODO afk ticker, broken
 			// ticker = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this, 0, 20);
@@ -1322,22 +1214,19 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 			// Client brand checker
 			Bukkit.getMessenger().registerIncomingPluginChannel(this, "MC|Brand", this);
 		} catch (Throwable e) {
-			LOGGER.error("Caught an error while enabling this plugin, so this will be disabled!", e);
+			LOGGER.error("Caught an error while enabling this plugin", e);
 			Bukkit.getPluginManager().disablePlugin(this);
 		}
 	}
 
-	private void registerNmsCommand(CommandAbstract commandAbstract) {
-		((CraftServer) Bukkit.getServer()).getCommandMap().register(getName(), new VanillaCommandWrapper(commandAbstract, commandAbstract.getCommand()));
+	private void registerNmsCommand(CommandMap commandmap, CommandAbstract commandabstract) {
+		commandmap.register(getName(), new VanillaCommandWrapper(commandabstract, commandabstract.getCommand()));
 	}
 
 	@Override
 	public List<String> onTabComplete(CommandSender commandsender, Command command, String s, String[] astring) {
 		try {
 			switch (command.getName().toLowerCase()) {
-				case "tpworld":
-					return CommandAbstract.a(astring, Utils.getExistingWorlds());
-
 				case "loottable":
 					return astring.length == 1 ? CommandAbstract.a(astring, getAvailableLootTables(commandsender)) : astring.length == 2 ? CommandAbstract.a(astring, Arrays.asList("true", "false")) : Collections.<String>emptyList();
 
@@ -1351,7 +1240,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 					})) : Collections.<String>emptyList();
 			}
 		} catch (Throwable e) {
-			Utils.broke(e);
+			broke(e);
 		}
 
 		return Collections.emptyList();
@@ -1389,7 +1278,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		try {
 			((CraftPlayer) entitydamageevent.getEntity()).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(damageSummary(damage), (byte) 2));
 		} catch (Throwable throwable) {
-			Utils.broke(throwable);
+			broke(throwable);
 		}
 	}
 
@@ -1398,6 +1287,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		Bukkit.broadcastMessage(ChatColor.GRAY + "World " + ChatColor.BOLD + worldloadevent.getWorld().getName() + ChatColor.RESET + ChatColor.GRAY + " is being loaded");
 	}
 
+	@EventHandler
 	public void a(WorldUnloadEvent worldunloadevent) {
 		Bukkit.broadcastMessage(ChatColor.GRAY + "World " + ChatColor.BOLD + worldunloadevent.getWorld().getName() + ChatColor.RESET + ChatColor.GRAY + " is being unloaded");
 	}
@@ -1407,7 +1297,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 //			long idleThreshold = 120;
 //			long idleThresholdMs = idleThreshold * 1000 * 60;
 //			for (Player i : Bukkit.getOnlinePlayers()) {
-//				Object nmsS1 = Utils.getHandle(i);
+//				Object nmsS1 = getHandle(i);
 //				long lastActive = (long) nmsS1.getClass().getMethod("I").invoke(nmsS1);
 //
 //				if (lastActive > 0L && idleThreshold > 0) {
@@ -1416,7 +1306,7 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 //
 //					if (timeUntilKick < 11 && idleThresholdMs - notActive >= 0) {
 //						i.sendMessage(String.format("\u00a76\u00a7lYou will be AFK kicked in %d second%s", timeUntilKick, plural((int) timeUntilKick)));
-//						i.playSound(i.getLocation(), "minecraft:block.note.pling", 3e7f, (timeUntilKick / 10f * 1.5f) + .5f);
+//						i.playSound(i.getLocation(), "minecraft:block.note.pling", 1.0F, (timeUntilKick / 10f * 1.5f) + .5f);
 //						//System.out.println(idleThresholdMs - notActive);
 //					}
 //
@@ -1468,8 +1358,31 @@ public class AmrsatrioServer extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
-	private static class PlayerNameHistory {
-		String name = "Player";
-		long changedToAt = 0;
+	private static class PlayerNameHistoryEntry {
+		public String name = "Player";
+		public long changedToAt = 0;
+
+		@Override
+		public String toString() {
+			return String.format(Messages.PlayerHist.NUMBER, name, changedToAt > 0 ? String.format(Messages.PlayerHist.ON, SDF.format(changedToAt)) : Messages.PlayerHist.INITIAL_NAME);
+		}
+
+		public static class Serializer implements JsonDeserializer<PlayerNameHistoryEntry> {
+			@Override
+			public PlayerNameHistoryEntry deserialize(JsonElement jsonElement, Type type, JsonDeserializationContext jsonDeserializationContext) throws JsonParseException {
+				PlayerNameHistoryEntry playernamehistoryentry = new PlayerNameHistoryEntry();
+				JsonObject jsonobject = jsonElement.getAsJsonObject();
+
+				if (jsonobject.has("name")) {
+					playernamehistoryentry.name = jsonobject.get("name").getAsString();
+				}
+
+				if (jsonobject.has("changedToAt")) {
+					playernamehistoryentry.changedToAt = jsonobject.get("changedToAt").getAsLong();
+				}
+
+				return playernamehistoryentry;
+			}
+		}
 	}
 }

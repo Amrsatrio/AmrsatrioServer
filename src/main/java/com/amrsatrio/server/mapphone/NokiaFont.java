@@ -170,6 +170,10 @@ public class NokiaFont extends MapFont {
 			{0, 0, 0, 0b110011, 0b110011, 0b011110, 0b001100, 0b011110, 0b110011, 0b110011, 0, 0}, // x
 			{0, 0, 0, 0b110011, 0b110011, 0b110011, 0b110110, 0b010110, 0b011100, 0b001100, 0b000111, 0b000011}, // y
 			{0, 0, 0, 0b111111, 0b110000, 0b011000, 0b001100, 0b000110, 0b000011, 0b111111, 0, 0}, // z
+			{0b11100, 0b00110, 0b00110, 0b00110, 0b00110, 0b00011, 0b00110, 0b00110, 0b00110, 0b00110, 0b00110, 0b11100}, // {
+			{0b11, 0b11, 0b11, 0b11, 0b11, 0b11, 0b11, 0b11, 0b11, 0b11, 0b11, 0b11}, // |
+			{0b00111, 0b01100, 0b01100, 0b01100, 0b01100, 0b11000, 0b01100, 0b01100, 0b01100, 0b01100, 0b01100, 0b00111}, // }
+			{0, 0, 0, 0, 0, 0b101100, 0b011010, 0, 0, 0, 0, 0}, // ~
 	};
 	private static final int[][] FONT_DATA_REG = {{0, 0b10, 0b10, 0b10, 0b10, 0b10, 0b10, 0, 0b10, 0b10, 0, 0},// !
 			{0b101, 0b101, 0b101, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // "
@@ -266,7 +270,7 @@ public class NokiaFont extends MapFont {
 			{0b0011, 0b0100, 0b0100, 0b0100, 0b0100, 0b1000, 0b0100, 0b0100, 0b0100, 0b0100, 0b0100, 0b0011}, // }
 			{0, 0, 0, 0, 0b10110, 0b01101, 0, 0, 0, 0, 0, 0}, // ~
 	};
-	private static final String FONT_CHARS = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz";
+	private static final String FONT_CHARS = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
 	public static final NokiaFont BOLD_SMALL = new NokiaFont(false, false, true);
 	public static final NokiaFont SMALL = new NokiaFont(false, false, false);
 	private final int height;

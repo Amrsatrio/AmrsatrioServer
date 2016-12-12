@@ -18,7 +18,7 @@ public class MCMABukkitCompat implements Listener {
 	private PrintStream c;
 
 	public MCMABukkitCompat(JavaPlugin javaplugin) {
-		a = Logger.getLogger("Minecraft");
+		a = javaplugin.getLogger();
 		b = javaplugin;
 		c = new PrintStream(new FileOutputStream(FileDescriptor.err));
 	}

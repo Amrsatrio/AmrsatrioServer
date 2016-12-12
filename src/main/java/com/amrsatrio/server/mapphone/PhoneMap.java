@@ -1,9 +1,13 @@
 package com.amrsatrio.server.mapphone;
 
-import com.amrsatrio.server.AmrsatrioServer;
+import com.amrsatrio.server.PingList.PingEntry;
 import com.amrsatrio.server.RayTrace;
+import com.amrsatrio.server.ServerPlugin;
 import com.amrsatrio.server.Utils;
-import com.google.common.collect.Lists;
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.Iterables;
 import net.minecraft.server.v1_11_R1.*;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -15,11 +19,10 @@ import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.annotation.Nullable;
+import java.util.*;
 
-import static com.amrsatrio.server.AmrsatrioServer.SDF;
+import static com.amrsatrio.server.ServerPlugin.SDF;
 
 public class PhoneMap extends DrawableMapRenderer {
 	private static Map<Player, PhoneSession> sessions = new HashMap<>();
@@ -36,14 +39,14 @@ public class PhoneMap extends DrawableMapRenderer {
 		nbttagcompound.setByteArray("colors", new byte[0]);
 		worldmap.a(nbttagcompound);
 		((CraftWorld) Bukkit.getWorlds().get(0)).getHandle().a("map_" + Short.MAX_VALUE, worldmap);
-		MapView mapView = Bukkit.getMap(Short.MAX_VALUE);
+		MapView mapView = worldmap.mapView;
 
 		for (MapRenderer maprenderer : mapView.getRenderers()) {
 			mapView.removeRenderer(maprenderer);
 		}
 
 		mapView.addRenderer(this);
-		AmrsatrioServer.LOGGER.debug("Phone map ID: " + mapView.getId());
+		ServerPlugin.LOGGER.debug("Phone map ID: " + mapView.getId());
 	}
 
 	@Override
@@ -74,7 +77,7 @@ public class PhoneMap extends DrawableMapRenderer {
 
 		PhoneSession session = sessions.get(p);
 
-		if (phoneInput == PhoneInput.HOME) {
+		if (phoneInput == PhoneInput.END) {
 			session.displayScreen(null);
 		} else {
 			session.currentScreen.onInput(phoneInput);
@@ -82,7 +85,30 @@ public class PhoneMap extends DrawableMapRenderer {
 	}
 
 	public enum PhoneInput {
-		UP, DOWN, LEFT, RIGHT, BUTTON1, BUTTON2, HOME
+		UP("up"), DOWN("down"), LEFT("left"), RIGHT("right"), BUTTON1("button1"), BUTTON2("button2"), END("end");
+
+		private static final Map<String, PhoneInput> BY_NAME = new HashMap<>();
+
+		static {
+			for (PhoneInput phoneinput : values()) {
+				BY_NAME.put(phoneinput.name, phoneinput);
+			}
+		}
+
+		private final String name;
+
+		PhoneInput(String name) {
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+
+		public static PhoneInput getByName(String name) {
+			return BY_NAME.get(name);
+		}
 	}
 
 	private static class PhoneSession {
@@ -95,27 +121,29 @@ public class PhoneMap extends DrawableMapRenderer {
 			this.mapRenderer = mapRenderer;
 		}
 
-		public void displayScreen(Screen phonescreen) {
-			currentScreen = phonescreen;
+		public void displayScreen(Screen screen) {
+			currentScreen = screen;
 
-			if (phonescreen == null) {
+			if (screen == null) {
 				return;
 			}
 
-			phonescreen.session = this;
-			phonescreen.mapRenderer = mapRenderer;
-			phonescreen.width = 128;
-			phonescreen.height = 128;
-			phonescreen.init();
+			screen.session = this;
+			screen.mapRenderer = mapRenderer;
+			screen.width = 128;
+			screen.height = 128;
+			screen.init();
 		}
 	}
 
 	private static class TestListScreen extends ListScreen {
 		private static final String SEL_GM = "Change gamemode";
 		private static final String CMD_BLK = "Cmd. block info";
+		private static final String PING_HIST = "Ping history";
+		private static final String TEST_INFO = "Test info";
 
 		public TestListScreen(Screen screen) {
-			super(screen, "Test list", Lists.newArrayList(SEL_GM, CMD_BLK, "TEST 2", "Test 3", "TEST 4", "Nice job, m8!"));
+			super(screen, "Actions", Arrays.asList(SEL_GM, CMD_BLK, PING_HIST, TEST_INFO));
 		}
 
 		@Override
@@ -124,45 +152,132 @@ public class PhoneMap extends DrawableMapRenderer {
 				case SEL_GM:
 					session.displayScreen(new SelectGamemodeScreen(this));
 					break;
+
 				case CMD_BLK:
 					session.displayScreen(new CommandBlockInfo(this));
+					break;
+
+				case PING_HIST:
+					session.displayScreen(new PingHistScreen(this));
+					break;
+
+				case TEST_INFO:
+					session.displayScreen(new WarningScreen(this, WarningScreen.EnumInfoType.WARNING, "Good, u clicked me!"));
+					break;
 			}
 		}
 	}
 
 	private static class SelectGamemodeScreen extends ListScreen {
 		public SelectGamemodeScreen(Screen screen) {
-			super(screen, "Change gamemode", Lists.newArrayList("Survival", "Creative", "Adventure", "Spectator"));
+			super(screen, "Change gamemode", Arrays.asList("Survival", "Creative", "Adventure", "Spectator"));
 		}
 
 		@Override
 		protected void onSelected(int i, String s) {
-			session.player.setGameMode(GameMode.valueOf(s.toUpperCase()));
-			session.displayScreen(prevScreen);
+			GameMode gamemode = GameMode.valueOf(s.toUpperCase());
+
+			if (session.player.getGameMode() == gamemode) {
+				session.displayScreen(new WarningScreen(this, WarningScreen.EnumInfoType.WARNING, "You're on that game mode!"));
+				return;
+			}
+
+			session.player.setGameMode(gamemode);
+			session.displayScreen(new WarningScreen(prevScreen, WarningScreen.EnumInfoType.INFO, "Done"));
 		}
 	}
 
+	private static class PingHistScreen extends ListScreen {
+		private static final Function<PingEntry, String> PENTRY_TO_STR = new Function<PingEntry, String>() {
+			@Nullable
+			@Override
+			public String apply(@Nullable PingEntry pingEntry) {
+				return pingEntry.getKey() + " (" + pingEntry.times.size() + ")";
+			}
+		};
+
+		public PingHistScreen(Screen screen) {
+			super(screen, "Ping history", new ArrayList<>(Collections2.transform(ServerPlugin.getInstance().pingList.getValues(), PENTRY_TO_STR)));
+		}
+
+
+	}
+
 	private static class CommandBlockInfo extends Screen {
+		private static final Function<net.minecraft.server.v1_11_R1.ItemStack, String> ITEM_STACK_STRING_FUNCTION = new Function<net.minecraft.server.v1_11_R1.ItemStack, String>() {
+			@Nullable
+			@Override
+			public String apply(@Nullable net.minecraft.server.v1_11_R1.ItemStack itemStack) {
+				return itemStack == null ? "ERROR" : itemStack.getCount() + " * " + itemStack.getName();
+			}
+		};
+
 		public CommandBlockInfo(Screen screen) {
 			super(screen);
 		}
 
 		@Override
 		public void draw(MapCanvas mapcanvas, Player player) {
-			drawTop("Cmd. block info");
+			drawTop("Block entity info");
 			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
 			RayTrace raytrace = RayTrace.a(player, 5.0D);
 			BlockPosition blockposition = raytrace.f();
+			String s = "Point at a block entity";
 
 			if (raytrace.a() && blockposition != null) {
 				TileEntity tileentity = ((CraftWorld) player.getWorld()).getHandle().getTileEntity(blockposition);
 
 				if (tileentity instanceof TileEntityCommand) {
-					mapRenderer.str(1, 15, mapRenderer.wrapFormattedStringToWidth(((TileEntityCommand) tileentity).getCommandBlock().getCommand(), 126), true);
+					s = ((TileEntityCommand) tileentity).getCommandBlock().getCommand();
+				} else if (tileentity instanceof TileEntityLootable) {
+					s = "";
+
+					for (net.minecraft.server.v1_11_R1.ItemStack itemstack : Iterables.filter(((TileEntityLootable) tileentity).getContents(), new Predicate<net.minecraft.server.v1_11_R1.ItemStack>() {
+						@Override
+						public boolean apply(@Nullable net.minecraft.server.v1_11_R1.ItemStack itemStack) {
+							return itemStack != net.minecraft.server.v1_11_R1.ItemStack.a;
+						}
+					})) {
+						s += ITEM_STACK_STRING_FUNCTION.apply(itemstack) + '\n';
+					}
 				}
 			}
 
+			mapRenderer.str(1, 15, mapRenderer.wrapFormattedStringToWidth(s, width - 2), true);
 			drawBottom("", "Back");
+		}
+
+	}
+
+	private static class WarningScreen extends Screen {
+		private static final int HOW_LONG = 60;
+		private final EnumInfoType type;
+		private final String text;
+		private int elapsed;
+
+		public WarningScreen(Screen screen, EnumInfoType type, String s) {
+			super(screen);
+			this.type = type;
+			text = s;
+		}
+
+		@Override
+		public void draw(MapCanvas mapcanvas, Player player) {
+			if (elapsed == 0) {
+				player.playSound(player.getLocation(), "minecraft:block.note.pling", 1.0F, type == EnumInfoType.WARNING ? 0.7F : 1.4F);
+			}
+
+			if (elapsed > HOW_LONG) {
+				session.displayScreen(prevScreen);
+			}
+
+			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
+			mapRenderer.str(0, 0, mapRenderer.wrapFormattedStringToWidth(text, width), true);
+			elapsed++;
+		}
+
+		public enum EnumInfoType {
+			INFO, WARNING
 		}
 	}
 
@@ -175,7 +290,7 @@ public class PhoneMap extends DrawableMapRenderer {
 		public void draw(MapCanvas mapcanvas, Player player) {
 			drawTop("Overview");
 			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
-			mapRenderer.str(1, 15, mapRenderer.wrapFormattedStringToWidth(SDF.format(System.currentTimeMillis()) + "\n" + AmrsatrioServer.NMS_VERSION + "\n" + player.getName() + "\n" + player.getWorld().getName(), 126), true);
+			mapRenderer.str(1, 15, mapRenderer.wrapFormattedStringToWidth(SDF.format(System.currentTimeMillis()) + "\n" + ServerPlugin.NMS_VERSION + "\n" + player.getName() + "\n" + player.getWorld().getName(), width - 2), true);
 			drawBottom("Actions", "");
 		}
 
@@ -195,6 +310,9 @@ public class PhoneMap extends DrawableMapRenderer {
 		private final List<String> items;
 		private final String title;
 		private int cursor = 0;
+		private int drawStart = 0;
+		private int displayableItems;
+		private boolean doesScroll;
 
 		public ListScreen(Screen screen, String title, List<String> strings) {
 			super(screen);
@@ -205,26 +323,45 @@ public class PhoneMap extends DrawableMapRenderer {
 		@Override
 		public void draw(MapCanvas mapcanvas, Player player) {
 //			super.draw(mapcanvas, player, session);
-			int i = drawTop(title);
+			int theY = drawTop(title);
 			mapRenderer.str(getTopWidth(), 0, "" + (cursor + 1), true);
 			int scrollbarHeight = height - 26;
 			int scrollbarWidth = 4;
 			int thumbHeight = scrollbarHeight / items.size();
-			mapRenderer.rect(width - scrollbarWidth, i, scrollbarWidth, scrollbarHeight, true);
-			mapRenderer.rect(width - scrollbarWidth, (int) (i + (float) cursor / (float) items.size() * (float) scrollbarHeight), scrollbarWidth, thumbHeight, false);
+			mapRenderer.rect(width - scrollbarWidth, theY, scrollbarWidth, scrollbarHeight, true);
+			mapRenderer.rect(width - scrollbarWidth, (int) (theY + (float) cursor / (float) items.size() * (float) scrollbarHeight), scrollbarWidth, thumbHeight, false);
 			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
-			int j = mapRenderer.getFont().getHeight() + 2;
+			int itemHeight = mapRenderer.getFont().getHeight() + 2;
+			displayableItems = scrollbarHeight / itemHeight;
+			doesScroll = items.size() > displayableItems;
+//			Utils.actionBarWithoutReflection(player, new ChatComponentText(String.format("Items %d, displayable %d, drawStart %d, cursor %d, bottom %s, top %s", items.size(), displayableItems, drawStart, cursor, isCursorAtBottomOfScreen(), isCursorAtTopOfScreen())));
 
-			for (int i1 = 0; i1 < items.size(); i1++) {
-				if (cursor == i1) {
-					mapRenderer.rect(0, i, 128 - scrollbarWidth, j, true);
+			for (int i = 0; i < displayableItems; i++) {
+				drawEntry(theY, width - scrollbarWidth, itemHeight, (drawStart + i) % items.size());
+				theY += itemHeight;
+
+				if (!doesScroll && i >= items.size() - 1) {
+					break;
 				}
-
-				mapRenderer.str(1, i + 1, items.get(i1), cursor != i1);
-				i += j;
 			}
 
 			drawBottom("Select", "Back");
+			// LOGIC if displayableItems == 3 items.size() == 5
+			// drawStart 2 draw 2, 3, 4
+			// drawStart 3 draw 3, 4, 5
+			// drawStart 4 draw 4, 1, 2
+			// drawStart 5 INVALID!!!
+			// isCursorAtTheBottom == true ARE FOLLOWS
+			// drawStart 0 cursor 2
+			// drawStart 4 cursor 1
+		}
+
+		private void drawEntry(int y, int w, int h, int idx) {
+			if (cursor == idx) {
+				mapRenderer.rect(0, y, w, h, true);
+			}
+
+			mapRenderer.str(1, y + 1, items.get(idx), cursor != idx);
 		}
 
 		@Override
@@ -233,20 +370,30 @@ public class PhoneMap extends DrawableMapRenderer {
 			switch (input) {
 				case UP:
 				case LEFT:
+					if (isCursorAtTopOfScreen() && doesScroll) {
+						drawStart = mod(drawStart - 1, items.size());
+					}
+
 					if (cursor > 0) {
 						cursor--;
 					} else {
 						cursor = items.size() - 1;
 					}
+
 					break;
 
 				case DOWN:
 				case RIGHT:
+					if (isCursorAtBottomOfScreen() && doesScroll) {
+						drawStart = mod(drawStart + 1, items.size());
+					}
+
 					if (cursor < items.size() - 1) {
 						cursor++;
 					} else {
 						cursor = 0;
 					}
+
 					break;
 
 				case BUTTON1:
@@ -255,12 +402,25 @@ public class PhoneMap extends DrawableMapRenderer {
 			}
 		}
 
+		private static int mod(int a, int b) {
+			int r = a % b;
+			return r < 0 ? r + b : r;
+		}
+
 		protected void onSelected(int i, String s) {
+		}
+
+		private boolean isCursorAtTopOfScreen() {
+			return drawStart == cursor;
+		}
+
+		private boolean isCursorAtBottomOfScreen() {
+			return (drawStart + displayableItems - 1) % items.size() == cursor;
 		}
 
 		@Override
 		protected int getTopWidth() {
-			return width - 6;
+			return width - mapRenderer.getFont().getWidth("" + (cursor + 1)) - 1;
 		}
 	}
 
@@ -299,9 +459,8 @@ public class PhoneMap extends DrawableMapRenderer {
 		}
 
 		protected int drawBottom(String s, String s1) {
-			int i = 128;
-			int center = i / 2;
-			int j = i - 13;
+			int center = width / 2;
+			int j = height - 13;
 			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
 			ctrStrBox(0, j, center, s, !leftButtonOn);
 			ctrStrBox(center, j, center, s1, !rightButtonOn);
@@ -320,7 +479,7 @@ public class PhoneMap extends DrawableMapRenderer {
 		}
 
 		protected void onInput(PhoneInput input) {
-			session.player.playSound(session.player.getLocation(), "minecraft:block.note.hat", 3F, 2.0F);
+			session.player.playSound(session.player.getLocation(), "minecraft:block.note.harp", 1.0F, 0.7F);
 
 			switch (input) {
 				case BUTTON2:

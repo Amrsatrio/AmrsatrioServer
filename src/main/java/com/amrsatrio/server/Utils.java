@@ -5,6 +5,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import net.minecraft.server.v1_11_R1.*;
+import net.minecraft.server.v1_11_R1.ChatClickable.EnumClickAction;
+import net.minecraft.server.v1_11_R1.IChatBaseComponent.ChatSerializer;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
@@ -17,18 +19,17 @@ import org.bukkit.craftbukkit.v1_11_R1.command.ProxiedNativeCommandSender;
 import org.bukkit.craftbukkit.v1_11_R1.entity.CraftMinecartCommand;
 import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TippedArrow;
 import org.bukkit.entity.minecart.CommandMinecart;
 import org.bukkit.event.player.PlayerPreLoginEvent.Result;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitScheduler;
 
 import java.io.*;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
 import java.net.URI;
 import java.net.URL;
 import java.security.MessageDigest;
@@ -41,7 +42,9 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-public class Utils {
+public enum Utils {
+	;
+
 	public static final long KB_IN_BYTES = 1024;
 	public static final long MB_IN_BYTES = KB_IN_BYTES * 1024;
 	public static final long GB_IN_BYTES = MB_IN_BYTES * 1024;
@@ -49,8 +52,7 @@ public class Utils {
 	public static final long PB_IN_BYTES = TB_IN_BYTES * 1024;
 	public static final int FLAG_SHORTER = 1 << 0;
 	public static final int FLAG_CALCULATE_ROUNDED = 1 << 1;
-	private static final Map<Class<?>, Class<?>> CORRESPONDING_TYPES = new HashMap<>();
-	private static int BUFFER = 32768;
+	private static final int BUFFER = 32768;
 
 	public static void a(Player a, File b) {
 		String msgHead = "Preview";
@@ -60,19 +62,19 @@ public class Utils {
 				case "NBT":
 				case "DAT":
 				case "SCHEMATIC":
-					AmrsatrioServer.msg(a, "\u00a7oAttempting to read this file as NBT", msgHead);
+					ServerPlugin.msg(a, "\u00a7oAttempting to read this file as NBT", msgHead);
 					try {
 						FileInputStream nbtfis = new FileInputStream(b);
 						NBTTagCompound root = NBTCompressedStreamTools.a(nbtfis);
 						nbtfis.close();
 						a.sendMessage(root.toString());
 					} catch (ZipException e) {
-						AmrsatrioServer.msg(a, "\u00a7oNot an NBT file!", msgHead);
+						ServerPlugin.msg(a, "\u00a7oNot an NBT file!", msgHead);
 					}
 					break;
 				case "JSON":
 				case "MCMETA":
-					AmrsatrioServer.msg(a, "\u00a7oAttempting to read this file as JSON", msgHead);
+					ServerPlugin.msg(a, "\u00a7oAttempting to read this file as JSON", msgHead);
 					JsonParser parser = new JsonParser();
 					FileReader fr = new FileReader(b);
 					JsonElement json = parser.parse(fr);
@@ -82,11 +84,11 @@ public class Utils {
 					break;
 				case "CONF":
 				case "PROPERTIES":
-					AmrsatrioServer.msg(a, "\u00a7oAttempting to read properties file and showing in inventory", msgHead);
+					ServerPlugin.msg(a, "\u00a7oAttempting to read properties file and showing in inventory", msgHead);
 					new PropertiesEditor(a, b).show();
 					break;
 				default:
-					AmrsatrioServer.msg(a, "\u00a7oAttempting to read this file as text", msgHead);
+					ServerPlugin.msg(a, "\u00a7oAttempting to read this file as text", msgHead);
 					try (BufferedReader br = new BufferedReader(new FileReader(b))) {
 						String cl;
 						while ((cl = br.readLine()) != null) {
@@ -101,22 +103,6 @@ public class Utils {
 		}
 	}
 
-	@Deprecated
-	public static void actionBar(Player a, String b) {
-		//TODO This is NMS reflection
-		try {
-			Class<?> icbc = getNMSClass("IChatBaseComponent");
-			Object handle = getHandle(a);
-			Object connection = getField(handle.getClass(), "playerConnection").get(handle);
-			Method sendPacket = getMethod(connection.getClass(), "sendPacket");
-			Object ser = getNMSClass("ChatComponentText").getConstructor(String.class).newInstance(b.replaceAll("&", "\u00a7"));
-			Object pkt = getNMSClass("PacketPlayOutChat").getConstructor(icbc, Byte.TYPE).newInstance(ser, (byte) 2);
-			sendPacket.invoke(connection, pkt);
-		} catch (Throwable e) {
-			e.printStackTrace();
-		}
-	}
-
 	public static void actionBarWithoutReflection(Player player, IChatBaseComponent ichatbasecomponent) {
 		((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(ichatbasecomponent, (byte) 2));
 	}
@@ -125,61 +111,60 @@ public class Utils {
 		actionBarWithoutReflection(player, new ChatComponentText(s));
 	}
 
-	public static String actionBoxJson(String a, String b) {
-		return actionBoxJson(a, b, false);
+	public static IChatBaseComponent suggestBoxJson(String a, String b, boolean c) {
+		return clickBoxJson(a, new ChatClickable(EnumClickAction.SUGGEST_COMMAND, b), c);
 	}
 
-	public static String actionBoxJson(String a, String b, boolean c) {
-		return clickBoxJson(a, b, "suggest_command", c);
+	public static IChatBaseComponent clickBoxJson(String text, ChatClickable clickAction, boolean addSpaceAfter) {
+		IChatBaseComponent ichatbasecomponent = new ChatComponentText('[' + text + ']').setChatModifier(new ChatModifier().setChatClickable(clickAction));
+
+		if (addSpaceAfter) {
+			ichatbasecomponent.addSibling(new ChatComponentText(" "));
+		}
+
+		return ichatbasecomponent;
 	}
 
-	public static String clickBoxJson(String a, String b, String c) {
-		return clickBoxJson(a, b, c, false);
-	}
-
-	public static String clickBoxJson(String a, String b, String c, boolean d) {
-		return String.format("{\"text\":\"[%s]\",\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"}}%s", a, c, b, d ? "{\"text\":\" \"}" : "");
-	}
-
-	public static void beepOnceNormalPitch(CommandSender a) {
-		if (!(a instanceof Player)) {
+	public static void beepOnceNormalPitch(CommandSender commandsender) {
+		if (!(commandsender instanceof Player)) {
 			return;
 		}
 
-		Player asPlayer = (Player) a;
+		Player asPlayer = (Player) commandsender;
 		asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1);
 	}
 
-	public static void broke(Throwable e) {
-		broke(e, "");
+	public static void broke(Throwable throwable) {
+		broke(throwable, "");
 	}
 
-	public static void broke(Throwable e, String s) {
+	public static void broke(Throwable throwable, String s) {
+		boolean flag = ServerPlugin.getInstance().verbose;
 		String s1 = "§4§l§ka§4§l>>§r    §c§lOh nose! I've caught an error" + s + "!§r    §4§l<<§ka";
 
-		if (AmrsatrioServer.verbose) {
+		if (flag) {
 			Bukkit.broadcastMessage(s1);
-			Bukkit.broadcastMessage(ChatColor.RED.toString() + e);
+			Bukkit.broadcastMessage(ChatColor.RED.toString() + throwable);
 		} else {
 			Bukkit.getConsoleSender().sendMessage(s1);
-			Bukkit.getConsoleSender().sendMessage(ChatColor.RED.toString() + e);
+			Bukkit.getConsoleSender().sendMessage(ChatColor.RED.toString() + throwable);
 		}
 
-		for (StackTraceElement i : e.getStackTrace()) {
+		for (StackTraceElement i : throwable.getStackTrace()) {
 			String string1 = i.getClassName();
 			String fcl = string1.substring(0, string1.lastIndexOf('.') + 1) + "\u00a7f" + string1.substring(string1.lastIndexOf('.') + 1);
 			String cls = "{\"text\":\"" + string1.substring(string1.lastIndexOf('.') + 1) + "\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":\"\u00a77" + fcl + "\"}}";
 			String str = "\u00a7r" + (i.isNativeMethod() ? "(\u00a7oNative Method\u00a7r)" : i.getFileName() != null && i.getLineNumber() >= 0 ? "(\u00a7b" + i.getFileName() + "\u00a7r:\u00a73" + i.getLineNumber() + "\u00a7r)" : i.getFileName() != null ? "(\u00a7b" + i.getFileName() + "\u00a7r)" : "(\u00a7oUnknown Source\u00a7r)");
 
-			if (AmrsatrioServer.verbose) {
+			if (flag) {
 				bcmJson("[{\"text\":\"\u00a77at \"}," + cls + ",{\"text\":\".\u00a7a" + i.getMethodName() + str + "\"}]");
 			}
 
 			Bukkit.getConsoleSender().sendMessage("\u00a77    at " + fcl + "\u00a7r.\u00a7a" + i.getMethodName() + str);
 		}
 
-		if (!AmrsatrioServer.verbose) {
-			Bukkit.broadcastMessage(ChatColor.RED + "An error occured. See server console for details.");
+		if (!flag) {
+			Bukkit.broadcastMessage(ChatColor.RED + "An error occurred. See server console for details.");
 		}
 
 //		Bukkit.broadcastMessage("\u00a77How about reporting this to me? Click here to report (coming soon)!");
@@ -198,49 +183,23 @@ public class Utils {
 	}
 
 	private static void bcmJson(String string) {
-		try {
-			Class<?> icbc = getNMSClass("IChatBaseComponent$ChatSerializer");
-			Object ser = icbc.getMethod("a", String.class).invoke(icbc.newInstance(), string);
-			Object pkt = getNMSClass("PacketPlayOutChat").getConstructor(getNMSClass("IChatBaseComponent")).newInstance(ser);
-			Object nmsS1 = getHandle(Bukkit.getServer());
-			nmsS1.getClass().getMethod("sendAll", getNMSClass("Packet")).invoke(nmsS1, pkt);
-			/*
-			 * for (Player a : Bukkit.getOnlinePlayers()) { Object handle =
-			 * getHandle(a); Object connection = getField(handle.getClass(),
-			 * "playerConnection").get(handle); Method sendPacket =
-			 * getMethod(connection.getClass(), "sendPacket");
-			 * sendPacket.invoke(connection, pkt); }
-			 */
-		} catch (Throwable e) {
-			e.printStackTrace();
-		}
+		((CraftServer) Bukkit.getServer()).getHandle().sendAll(new PacketPlayOutChat(ChatSerializer.a(string)));
 	}
 
 	public static String buildString(String[] a, int b) {
 		StringBuilder stringbuilder = new StringBuilder();
+
 		for (int i = b; i < a.length; ++i) {
 			if (i > b) {
 				stringbuilder.append(" ");
 			}
+
 			String s = a[i];
 			stringbuilder.append(s);
 		}
+
 		String res = stringbuilder.toString();
 		return res.substring(0, res.length() - (res.endsWith(" ") ? 1 : 0));
-	}
-
-	public static boolean ClassListEqual(Class<?>[] l1, Class<?>[] l2) {
-		boolean equal = true;
-		if (l1.length != l2.length) {
-			return false;
-		}
-		for (int i = 0; i < l1.length; i++) {
-			if (l1[i] != l2[i]) {
-				equal = false;
-				break;
-			}
-		}
-		return equal;
 	}
 
 	public static File createUniqueCopyName(File path, String fileName) {
@@ -249,18 +208,6 @@ public class Utils {
 			return file;
 		}
 		return createUniqueCopyName(path, FilenameUtils.removeExtension(fileName) + " - Copy." + FilenameUtils.getExtension(fileName));
-	}
-
-	public static boolean equalsTypeArray(Class<?>[] a, Class<?>[] o) {
-		if (a.length != o.length) {
-			return false;
-		}
-		for (int i = 0; i < a.length; i++) {
-			if (!a[i].equals(o[i]) && !a[i].isAssignableFrom(o[i])) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	public static String fancyTime(long l, boolean simple) {
@@ -355,35 +302,35 @@ public class Utils {
 		return d4 > 0.5D ? decimalFormat.format(d4) + " y" : d3 > 0.5D ? decimalFormat.format(d3) + " d" : d2 > 0.5D ? decimalFormat.format(d2) + " h" : d1 > 0.5D ? decimalFormat.format(d1) + " m" : d0 + " s";
 	}
 
-	public static String getIPAddress(boolean useIPv4) {
-		try {
-			List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-			for (NetworkInterface intf : interfaces) {
-				List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
-				for (InetAddress addr : addrs) {
-					if (!addr.isLoopbackAddress()) {
-						String sAddr = addr.getHostAddress();
-						// boolean isIPv4 =
-						// InetAddressUtils.isIPv4Address(sAddr);
-						boolean isIPv4 = sAddr.indexOf(':') < 0;
-
-						if (useIPv4) {
-							if (isIPv4) {
-								return sAddr;
-							}
-						} else {
-							if (!isIPv4) {
-								int delim = sAddr.indexOf('%'); // drop ip6 zone suffix
-								return delim < 0 ? sAddr.toUpperCase() : sAddr.substring(0, delim).toUpperCase();
-							}
-						}
-					}
-				}
-			}
-		} catch (Throwable ex) {
-		} // for now eat exceptions
-		return "";
-	}
+//	public static String getIPAddress(boolean useIPv4) {
+//		try {
+//			List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+//			for (NetworkInterface intf : interfaces) {
+//				List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+//				for (InetAddress addr : addrs) {
+//					if (!addr.isLoopbackAddress()) {
+//						String sAddr = addr.getHostAddress();
+//						// boolean isIPv4 =
+//						// InetAddressUtils.isIPv4Address(sAddr);
+//						boolean isIPv4 = sAddr.indexOf(':') < 0;
+//
+//						if (useIPv4) {
+//							if (isIPv4) {
+//								return sAddr;
+//							}
+//						} else {
+//							if (!isIPv4) {
+//								int delim = sAddr.indexOf('%'); // drop ip6 zone suffix
+//								return delim < 0 ? sAddr.toUpperCase() : sAddr.substring(0, delim).toUpperCase();
+//							}
+//						}
+//					}
+//				}
+//			}
+//		} catch (Throwable ex) {
+//		} // for now eat exceptions
+//		return "";
+//	}
 
 	public static String disabledOrEnabled(boolean flag) {
 		return flag ? "\u00a7aEnabled" : "\u00a7cDisabled";
@@ -408,9 +355,9 @@ public class Utils {
 		tabHeaderFooter(a, "\u00a7aWelcome to\n\u00a7l" + Bukkit.getServerName(), "\u00a76You're currently in\n\u00a7l" + a.getWorld().getName());
 	}
 
-	public static String plural(int a) {
-		return a == 1 ? "" : "s";
-	}
+//	public static String plural(int a) {
+//		return a == 1 ? "" : "s";
+//	}
 
 //	public static String formatFileSize(long number) {
 //		return formatFileSize(number, false);
@@ -459,15 +406,15 @@ public class Utils {
 //		return formatFileSize(number, true);
 //	}
 
-	public static File getCopyFile(File f) {
-		// if (!f.isFile()) throw new IllegalArgumentException("The file is a
-		// folder!");
-		if (f.exists()) {
-			return new File(f.getParentFile(), "Copy of " + f.getName());
-		} else {
-			return f;
-		}
-	}
+//	public static File getCopyFile(File f) {
+//		// if (!f.isFile()) throw new IllegalArgumentException("The file is a
+//		// folder!");
+//		if (f.exists()) {
+//			return new File(f.getParentFile(), "Copy of " + f.getName());
+//		} else {
+//			return f;
+//		}
+//	}
 
 	public static List<String> getExistingWorlds() {
 		List<String> res = new ArrayList<>();
@@ -484,70 +431,30 @@ public class Utils {
 		return res;
 	}
 
-	public static Field getField(Class<?> clazz, String name) {
-		try {
-			Field field = clazz.getDeclaredField(name);
-			field.setAccessible(true);
-			return field;
-		} catch (Throwable e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-
 	public static File getFile(File curdir, String file) {
 		return getFile(curdir.getAbsolutePath(), file);
 	}
 
 	private static File getFile(String curdir, String file) {
 		String separator = "/";
+
 		if (curdir.endsWith("/")) {
 			separator = "";
 		}
+
 		return new File(curdir + separator + file);
 	}
 
 	@Deprecated
 	public static Object getHandle(Object obj) {
 		try {
-			return getMethod("getHandle", obj.getClass()).invoke(obj);
+			Method method = obj.getClass().getDeclaredMethod("getHandle");
+			method.setAccessible(true);
+			return method.invoke(obj);
 		} catch (Throwable e) {
 			e.printStackTrace();
 			return null;
 		}
-	}
-
-	public static Method getMethod(Class<?> clazz, String name, Class<?>... args) {
-		for (Method m : clazz.getMethods()) {
-			if (m.getName().equals(name) && (args.length == 0 || ClassListEqual(args, m.getParameterTypes()))) {
-				m.setAccessible(true);
-				return m;
-			}
-		}
-		return null;
-	}
-
-	public static Method getMethod(String name, Class<?> clazz, Class<?>... paramTypes) {
-		Class<?>[] t = toPrimitiveTypeArray(paramTypes);
-		for (Method m : clazz.getMethods()) {
-			Class<?>[] types = toPrimitiveTypeArray(m.getParameterTypes());
-			if (m.getName().equals(name) && equalsTypeArray(types, t)) {
-				return m;
-			}
-		}
-		return null;
-	}
-
-	public static Class<?> getNMSClass(String className) throws ClassNotFoundException {
-		return Class.forName("net.minecraft.server." + getVersion() + className);
-	}
-
-	public static Class<?> getOBCClass(String className) throws ClassNotFoundException {
-		return Class.forName("org.bukkit.craftbukkit." + getVersion() + className);
-	}
-
-	public static Class<?> getPrimitiveType(Class<?> clazz) {
-		return CORRESPONDING_TYPES.containsKey(clazz) ? CORRESPONDING_TYPES.get(clazz) : clazz;
 	}
 
 	public static String getVersion() {
@@ -584,55 +491,44 @@ public class Utils {
 		return stringbuilder.toString();
 	}
 
-	public static String joinNiceStringFromCollection(Collection<String> strings) {
-		return joinNiceString(strings.toArray(new String[strings.size()]));
-	}
+//	public static String joinNiceStringFromCollection(Collection<String> strings) {
+//		return joinNiceString(strings.toArray(new String[strings.size()]));
+//	}
 
 	public static void jsonMsg(Player a, String b) {
 		jsonMsg(a, b, true);
 	}
 
 	public static void jsonMsg(Player a, String b, boolean c) {
-		try {
-			Class<?> icbc = getNMSClass("IChatBaseComponent$ChatSerializer");
-			Object handle = getHandle(a);
-			Object connection = getField(handle.getClass(), "playerConnection").get(handle);
-			Method sendPacket = getMethod(connection.getClass(), "sendPacket");
-			Object ser = icbc.getMethod("a", String.class).invoke(icbc.newInstance(), c ? String.format("[{\"text\":\"%s\"},%s]", String.format(AmrsatrioServer.SERVER_HEADER, "Server"), b) : b);
-			Object pkt = getNMSClass("PacketPlayOutChat").getConstructor(getNMSClass("IChatBaseComponent")).newInstance(ser);
-			sendPacket.invoke(connection, pkt);
-		} catch (Throwable e) {
-			e.printStackTrace();
-		}
+		((CraftPlayer) a).getHandle().sendMessage(ChatSerializer.a(c ? String.format("[{\"text\":\"%s\"},%s]", String.format(ServerPlugin.SH_WITH_COLORS, "Server"), b) : b));
 	}
 
-	public static String readUrl(String urlString) throws Exception {
-		BufferedReader reader = null;
-		try {
-			URL url = new URL(urlString);
-			reader = new BufferedReader(new InputStreamReader(url.openStream()));
-			StringBuffer buffer = new StringBuffer();
-			int read;
-			char[] chars = new char[1024];
-			while ((read = reader.read(chars)) != -1) {
-				buffer.append(chars, 0, read);
+	public static String readUrl(String urlString) throws IOException {
+		URL url = new URL(urlString);
+
+		try (BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(url.openStream()))) {
+			StringBuilder stringbuilder = new StringBuilder();
+			int i;
+			char[] achar = new char[BUFFER];
+
+			while ((i = bufferedreader.read(achar)) != -1) {
+				stringbuilder.append(achar, 0, i);
 			}
-			return buffer.toString();
-		} finally {
-			if (reader != null) {
-				reader.close();
-			}
+
+			return stringbuilder.toString();
 		}
 	}
 
 	public static String sha1(String input) throws NoSuchAlgorithmException {
-		MessageDigest mDigest = MessageDigest.getInstance("SHA1");
-		byte[] result = mDigest.digest(input.getBytes());
-		StringBuffer sb = new StringBuffer();
-		for (int i = 0; i < result.length; i++) {
-			sb.append(Integer.toString((result[i] & 0xff) + 0x100, 16).substring(1));
+		MessageDigest messagedigest = MessageDigest.getInstance("SHA1");
+		byte[] abyte = messagedigest.digest(input.getBytes());
+		StringBuilder stringbuilder = new StringBuilder();
+
+		for (int i = 0; i < abyte.length; i++) {
+			stringbuilder.append(Integer.toString((abyte[i] & 0xff) + 0x100, 16).substring(1));
 		}
-		return sb.toString();
+
+		return stringbuilder.toString();
 	}
 
 	public static void tabHeaderFooter(Player player, String s, String s1) {
@@ -643,46 +539,37 @@ public class Utils {
 			field.set(packetplayoutplayerlistheaderfooter, new ChatComponentText(s1));
 			((CraftPlayer) player).getHandle().playerConnection.sendPacket(packetplayoutplayerlistheaderfooter);
 		} catch (Throwable e) {
-			AmrsatrioServer.LOGGER.warn("Unable to send player list header footer to " + player.getName(), e);
+			ServerPlugin.LOGGER.warn("Unable to send player list header footer to " + player.getName(), e);
 		}
 	}
 
-	public static void textSlide(final Player player, String s, final int i, int j, BukkitScheduler bukkitscheduler, JavaPlugin javaplugin) {
-		// String text, int textLengthInFrame, int speedTicks
-		s = ChatColor.stripColor(s);
-		String s1 = "";
-
-		for (int k = -i; k < -1; k++) {
-			s1 += " ";
-		}
-
-		s1 += s;
-
-		for (int k = 0; k < i; k++) {
-			s1 += " ";
-		}
-
-		final String v1 = s1;
-
-		for (int k = 0; k + k <= v1.length(); k++) {
-			final int i1 = k;
-			bukkitscheduler.scheduleSyncDelayedTask(javaplugin, new Runnable() {
-				@Override
-				public void run() {
-					actionBarWithoutReflection(player, v1.substring(i1, i + i1));
-				}
-			}, j * k);
-		}
-	}
-
-	public static Class<?>[] toPrimitiveTypeArray(Class<?>[] classes) {
-		int a = classes != null ? classes.length : 0;
-		Class<?>[] types = new Class<?>[a];
-		for (int i = 0; i < a; i++) {
-			types[i] = getPrimitiveType(classes[i]);
-		}
-		return types;
-	}
+//	public static void textSlide(final Player player, String s, final int i, int j, BukkitScheduler bukkitscheduler, JavaPlugin javaplugin) {
+//		// String text, int textLengthInFrame, int speedTicks
+//		s = ChatColor.stripColor(s);
+//		String s1 = "";
+//
+//		for (int k = -i; k < -1; k++) {
+//			s1 += " ";
+//		}
+//
+//		s1 += s;
+//
+//		for (int k = 0; k < i; k++) {
+//			s1 += " ";
+//		}
+//
+//		final String v1 = s1;
+//
+//		for (int k = 0; k + k <= v1.length(); k++) {
+//			final int i1 = k;
+//			bukkitscheduler.scheduleSyncDelayedTask(javaplugin, new Runnable() {
+//				@Override
+//				public void run() {
+//					actionBarWithoutReflection(player, v1.substring(i1, i + i1));
+//				}
+//			}, j * k);
+//		}
+//	}
 
 	@SuppressWarnings("deprecation")
 	// copied from VanillaCommandWrapper.getListener(CommandSender)
@@ -718,11 +605,12 @@ public class Utils {
 		if (!(commandsender instanceof Player)) {
 			return;
 		}
+
 		final Player asPlayer = (Player) commandsender;
 		Runnable sound = new Runnable() {
 			@Override
 			public void run() {
-				asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 0.5f);
+				asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0F, 0.7F);
 			}
 		};
 		sound.run();
@@ -730,46 +618,42 @@ public class Utils {
 		Bukkit.getScheduler().scheduleSyncDelayedTask(javaplugin, sound, 8L);
 	}
 
-	public static void extractZip(File zipFile, File destDir) throws Exception {
-		ZipInputStream zis = null;
+	public static void extractZip(File zipFile, File destDir) throws IOException {
 		if (!destDir.exists()) {
 			destDir.mkdir();
 		}
-		zis = new ZipInputStream(new FileInputStream(zipFile));
-		ZipEntry entry = zis.getNextEntry();
-		while (entry != null) {
-			String filePath = destDir.getPath() + File.separator + entry.getName();
-			if (!entry.isDirectory()) {
-				new File(filePath).getParentFile().mkdirs();
-				new File(filePath).createNewFile();
-				BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath));
-				byte[] bytesIn = new byte[BUFFER];
-				int read = 0;
-				while ((read = zis.read(bytesIn)) != -1) {
-					bos.write(bytesIn, 0, read);
+
+		try (ZipInputStream zipinputstream = new ZipInputStream(new FileInputStream(zipFile))) {
+			ZipEntry zipentry = zipinputstream.getNextEntry();
+
+			while (zipentry != null) {
+				String s = destDir.getPath() + File.separator + zipentry.getName();
+				File file = new File(s);
+
+				if (!zipentry.isDirectory()) {
+					file.getParentFile().mkdirs();
+					file.createNewFile();
+
+					try (BufferedOutputStream bufferedoutputstream = new BufferedOutputStream(new FileOutputStream(file))) {
+						byte[] abyte = new byte[BUFFER];
+						int i;
+
+						while ((i = zipinputstream.read(abyte)) != -1) {
+							bufferedoutputstream.write(abyte, 0, i);
+						}
+					}
+				} else {
+					file.mkdir();
 				}
-				bos.close();
-			} else {
-				File dir = new File(filePath);
-				dir.mkdir();
+
+				zipinputstream.closeEntry();
+				zipentry = zipinputstream.getNextEntry();
 			}
-			zis.closeEntry();
-			entry = zis.getNextEntry();
 		}
-		zis.close();
 	}
 
 	public static boolean isInSubDirectory(File dir, File file) {
 		return !(file == null || file.isFile()) && (file.equals(dir) || isInSubDirectory(dir, file.getParentFile()));
-	}
-
-	public static void noReflection(CommandSender a) {
-		String s = "\u00a7c\u00a7lWarning: this command only work in 1.10!";
-		if (a instanceof Player) {
-			actionBar((Player) a, s);
-		} else {
-			AmrsatrioServer.msg(a, s);
-		}
 	}
 
 	// http://stackoverflow.com/questions/1399126/java-util-zip-recreating-directory-structure
@@ -812,11 +696,14 @@ public class Utils {
 
 	private static void copy(InputStream in, OutputStream out) throws IOException {
 		byte[] buffer = new byte[BUFFER];
+
 		while (true) {
 			int readCount = in.read(buffer);
+
 			if (readCount < 0) {
 				break;
 			}
+
 			out.write(buffer, 0, readCount);
 		}
 	}
@@ -837,19 +724,23 @@ public class Utils {
 		switch (result) {
 			case ALLOWED: // very silly
 				return "that player is allowed to log in";
+
 			case KICK_FULL:
 				return "this server is full";
+
 			case KICK_BANNED:
 				return "that player is banned";
+
 			case KICK_WHITELIST:
 				return "that player is out of the whitelist";
+
 			default:
 			case KICK_OTHER:
 				return "of an unknown reason";
 		}
 	}
 
-	public static void printListNumbered(CommandSender commandSender, List<String> list) {
+	public static void printListNumbered(CommandSender commandSender, List<?> list) {
 		for (int i = 0; i < list.size(); i++) {
 			commandSender.sendMessage(ChatColor.GRAY.toString() + (i + 1) + ". " + ChatColor.RESET + list.get(i));
 		}
@@ -878,7 +769,46 @@ public class Utils {
 		return DateUtils.truncate(new Date(date), Calendar.DATE).getTime();
 	}
 
-	public static class BytesResult {
+	public static IChatBaseComponent plsRenameMe(String s, IChatBaseComponent ichatbasecomponent) {
+		return new ChatComponentText(s + ": ").setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY)).addSibling(new ChatComponentText("").setChatModifier(new ChatModifier().setColor(EnumChatFormat.WHITE)).addSibling(ichatbasecomponent));
+	}
+
+	public static net.minecraft.server.v1_11_R1.ItemStack getTippedArrowItem(TippedArrow tippedarrow) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+		// TODO This is NMS reflection
+		Object object = getHandle(tippedarrow);
+		Method method = object.getClass().getDeclaredMethod("j");
+		method.setAccessible(true);
+		return (net.minecraft.server.v1_11_R1.ItemStack) method.invoke(object);
+	}
+
+	public static Collection<MinecraftKey> getAvailableLootTables(CommandSender commandsender) {
+		List<MinecraftKey> list = new ArrayList<>();
+		list.addAll(LootTables.a());
+
+		if (!(commandsender instanceof Player)) {
+			return list;
+		}
+
+		File file = new File(new File(((Player) commandsender).getWorld().getWorldFolder(), "data"), "loot_tables");
+
+		if (!file.exists() || file.isFile()) {
+			return list;
+		}
+
+		for (File file1 : file.listFiles()) {
+			if (file1.isDirectory()) {
+				for (File file2 : file1.listFiles()) {
+					if (file2.isFile() && file2.getName().endsWith(".json")) {
+						list.add(new MinecraftKey(file1.getName(), file2.getName().substring(0, file2.getName().length() - ".json".length())));
+					}
+				}
+			}
+		}
+
+		return list;
+	}
+
+	private static class BytesResult {
 		public final String value;
 		public final String units;
 		public final long roundedBytes;

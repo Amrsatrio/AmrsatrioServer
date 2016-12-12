@@ -54,15 +54,15 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 	}
 
 	protected void str(int x, int y, String text, boolean black) {
-			int xStart = x;
-			byte color = black ? 119 : MapPalette.TRANSPARENT;
+		int xStart = x;
+		byte color = black ? 119 : MapPalette.TRANSPARENT;
 
-			for (int i = 0; i < text.length(); ++i) {
-				char ch = text.charAt(i);
-				if (ch == 10) {
-					x = xStart;
-					y += font.getHeight() + 1;
-				} else {
+		for (int i = 0; i < text.length(); ++i) {
+			char ch = text.charAt(i);
+			if (ch == 10) {
+				x = xStart;
+				y += font.getHeight() + 1;
+			} else {
 //						if (ch == 167) {
 //							int sprite = text.indexOf(59, i);
 //							if (sprite >= 0) {
@@ -76,19 +76,19 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 //							}
 //						}
 
-					CharacterSprite var13 = font.getChar(text.charAt(i));
+				CharacterSprite var13 = font.getChar(text.charAt(i));
 
-					for (int r = 0; r < font.getHeight(); ++r) {
-						for (int c = 0; c < var13.getWidth(); ++c) {
-							if (var13.get(r, c)) {
-								mapCanvas.setPixel(x + c, y + r, color);
-							}
+				for (int r = 0; r < font.getHeight(); ++r) {
+					for (int c = 0; c < var13.getWidth(); ++c) {
+						if (var13.get(r, c)) {
+							mapCanvas.setPixel(x + c, y + r, color);
 						}
 					}
-
-					x += var13.getWidth() + 1;
 				}
+
+				x += var13.getWidth() + 1;
 			}
+		}
 	}
 
 //	public List<String> listFormattedStringToWidth(String str, int wrapWidth) {
@@ -134,7 +134,7 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 					l = k;
 
 				default:
-					j += getFont().getChar(c0).getWidth();
+					j += getFont().getChar(c0).getWidth() + 1;
 					break;
 			}
 

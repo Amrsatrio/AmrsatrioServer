@@ -28,47 +28,51 @@ import java.util.TreeMap;
 public class PropertiesEditor {
 	private static final String TAG = "PropEdit";
 	public boolean waiting = false;
-	private Player p;
-	private File f;
+	private Player player;
+	private File file;
 	private Properties prop;
 	private Inventory inv;
-	private String currentK = null;
+	private String currentKey = null;
 	private boolean canEdit;
 
-	public PropertiesEditor(Player a, File b) throws Exception {
-		p = a;
-		f = b;
+	public PropertiesEditor(Player a, File b) throws IOException {
+		player = a;
+		file = b;
 		prop = new Properties();
-		canEdit = Utils.isInSubDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(), f.getParentFile()) || f.getParentFile().getName().equals("108.61.184.122:10210");
-		FileInputStream fis = new FileInputStream(b);
-		prop.load(fis);
-		fis.close();
+		canEdit = Utils.isInSubDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(), file.getParentFile()) || file.getParentFile().getName().equals("108.61.184.122:10210");
+
+		try (FileInputStream fileinputstream = new FileInputStream(b)) {
+			prop.load(fileinputstream);
+		}
 	}
 
 	private void a() {
-		inv = Bukkit.createInventory(null, (int) Math.ceil((double) prop.size() / 9) * 9, (canEdit ? "" : "\u00a7o") +
-				f.getName() + " - Properties editor");
+		inv = Bukkit.createInventory(null, (int) Math.ceil((double) prop.size() / 9) * 9, (canEdit ? "" : "\u00a7o") + file.getName() + " - Properties editor");
 		int i = 0;
 
 		for (Entry<Object, Object> n : new TreeMap<>(prop).entrySet()) {
-			String col = "7";
+			ChatColor col = ChatColor.GRAY;
 			ItemStack it = new ItemStack(Material.PAPER);
 			ItemMeta im = it.getItemMeta();
-			im.setDisplayName("\u00a7r" + n.getKey());
+			im.setDisplayName(ChatColor.RESET.toString() + n.getKey());
 			String val = n.getValue().toString();
+
 			if (val.isEmpty()) {
-				val = "\u00a7o<not set>";
+				val = ChatColor.ITALIC + Messages.PropEdit.NOT_SET;
 			}
+
 			if (val.toLowerCase().equals("true")) {
-				col = "a";
+				col = ChatColor.GREEN;
 			}
+
 			if (val.toLowerCase().equals("false")) {
-				col = "c";
+				col = ChatColor.RED;
 			}
+
 			ArrayList<String> lore = new ArrayList<>();
 
 			for (String j : val.split("(?<=\\G.{35})")) {
-				lore.add("\u00a7" + col + j);
+				lore.add(col + j);
 			}
 
 			im.setLore(lore);
@@ -79,23 +83,23 @@ public class PropertiesEditor {
 
 	public void show() {
 		a();
-		if (p.getOpenInventory() != null) {
-			p.closeInventory();
+		if (player.getOpenInventory() != null) {
+			player.closeInventory();
 		}
-		p.openInventory(inv);
-		AmrsatrioServer.propEditInstances.put(p, this);
-		p.sendMessage("You can " + (canEdit ? "edit" : "only read") + " this file.");
+		player.openInventory(inv);
+		ServerPlugin.propEditInstances.put(player, this);
+		player.sendMessage(canEdit ? Messages.PropEdit.CAN_EDIT : Messages.PropEdit.CANT_EDIT);
 
 		if (canEdit) {
-			p.sendMessage("To edit a key, click a paper. To save, press shift+right click. Close the inventory to discard changes.");
+			player.sendMessage(Messages.PropEdit.HELP);
 		}
 	}
 
 	public void a(AsyncPlayerChatEvent a) {
-		if (currentK != null) {
+		if (currentKey != null) {
 			a.setCancelled(true);
-			prop.setProperty(currentK, a.getMessage());
-			currentK = null;
+			prop.setProperty(currentKey, a.getMessage());
+			currentKey = null;
 			waiting = false;
 			show();
 		}
@@ -104,33 +108,26 @@ public class PropertiesEditor {
 	public void a(InventoryClickEvent a) {
 		a.setCancelled(true);
 
-		if (currentK == null && a.getCurrentItem().getItemMeta() != null && a.getClick() == ClickType.LEFT && canEdit) {
-			currentK = ChatColor.stripColor(a.getCurrentItem().getItemMeta().getDisplayName());
+		if (currentKey == null && a.getCurrentItem().getItemMeta() != null && a.getClick() == ClickType.LEFT && canEdit) {
+			currentKey = ChatColor.stripColor(a.getCurrentItem().getItemMeta().getDisplayName());
 			waiting = true;
-			p.closeInventory();
-			AmrsatrioServer.msg(p, "Type the desired value for " + currentK + " in the chat box.", "PropEdit");
-			((CraftPlayer) p).getHandle().sendMessage(new ChatComponentText("Click me to insert current value into chat box").setChatModifier(new ChatModifier().setUnderline(true).setChatClickable(new ChatClickable(EnumClickAction.SUGGEST_COMMAND, prop.getProperty(currentK, "UNKNOWN")))));
+			player.closeInventory();
+			ServerPlugin.msg(player, String.format(Messages.PropEdit.TYPE_VALUE, currentKey), TAG);
+			((CraftPlayer) player).getHandle().sendMessage(new ChatComponentText(Messages.PropEdit.CLICK_TO_INSERT).setChatModifier(new ChatModifier().setUnderline(true).setChatClickable(new ChatClickable(EnumClickAction.SUGGEST_COMMAND, prop.getProperty(currentKey, "UNKNOWN")))));
 		} else if (a.getClick() == ClickType.SHIFT_RIGHT) {
-			p.closeInventory();
+			player.closeInventory();
 
 			if (!canEdit) {
-				AmrsatrioServer.msg(p, "\u00a7cFor security reasons, you cannot modify files outside this server's folder.", TAG);
+				ServerPlugin.msg(player, ChatColor.RED + Messages.PropEdit.CANT_EDIT_OUTSIDE_SERVER, TAG);
 				return;
 			}
 
-			FileOutputStream fos = null;
-			try {
-				fos = new FileOutputStream(f);
+			try (FileOutputStream fos = new FileOutputStream(file)) {
 				prop.store(fos, null);
-				AmrsatrioServer.msg(p, "Successfully saved the file.", TAG);
+				ServerPlugin.msg(player, Messages.PropEdit.SAVE_SUCCESS, TAG);
 			} catch (Throwable e) {
-				e.printStackTrace();
-			} finally {
-				try {
-					fos.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+				ServerPlugin.LOGGER.warn("Can't save properties file " + file, e);
+				ServerPlugin.msg(player, Messages.PropEdit.SAVE_FAILED, TAG);
 			}
 		}
 	}

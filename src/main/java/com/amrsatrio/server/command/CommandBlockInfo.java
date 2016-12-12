@@ -1,7 +1,7 @@
 package com.amrsatrio.server.command;
 
-import com.amrsatrio.server.AmrsatrioServer;
 import com.amrsatrio.server.RayTrace;
+import com.amrsatrio.server.ServerPlugin;
 import com.amrsatrio.server.Utils;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -9,7 +9,6 @@ import com.google.common.collect.Iterables;
 import net.minecraft.server.v1_11_R1.*;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -21,7 +20,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 //TODO: REFLECTION
-public class CommandBlockInfo extends Command {
+public class CommandBlockInfo extends CustomizedPluginCommand {
 	private static final Joiner a = Joiner.on(',');
 	private static Function<Entry<IBlockState<?>, Comparable<?>>, String> b;
 
@@ -31,7 +30,7 @@ public class CommandBlockInfo extends Command {
 			field.setAccessible(true);
 			b = (Function<Entry<IBlockState<?>, Comparable<?>>, String>) field.get(null);
 		} catch (Throwable e) {
-			AmrsatrioServer.LOGGER.warn("Can't get BlockState function", e);
+			ServerPlugin.LOGGER.warn("Can't get BlockState function", e);
 		}
 	}
 
@@ -40,85 +39,77 @@ public class CommandBlockInfo extends Command {
 	}
 
 	@Override
-	public boolean execute(CommandSender commandsender, String s, String[] astring) {
-//		Utils.noReflection(commandsender);
-		ICommandListener icommandlistener = Utils.getListener(commandsender);
+	public boolean executePluginCommand(CommandSender commandsender, ICommandListener icommandlistener, String s, String[] astring) throws CommandException {
+		BlockPosition blockposition = null;
 
-		try {
-			BlockPosition blockposition = null;
+		if (astring.length < 3) {
+			if (commandsender instanceof Player) {
+				RayTrace raytrace = RayTrace.a((Player) commandsender, 5.0D);
 
-			if (astring.length < 3) {
-				if (commandsender instanceof Player) {
-					RayTrace raytrace = RayTrace.a((Player) commandsender, 5.0D);
-
-					if (raytrace.a() && raytrace.f() != null) {
-						blockposition = raytrace.f();
-					}
-				} else {
-					throw new ExceptionUsage(getUsage().replace("<command>", s));
+				if (raytrace.a() && raytrace.f() != null) {
+					blockposition = raytrace.f();
 				}
 			} else {
-				blockposition = CommandAbstract.a(icommandlistener, astring, 0, false);
+				throw new ExceptionUsage(getUsage(s));
 			}
-
-			if (blockposition == null) {
-				throw new CommandException("You're not pointing at a block");
-			}
-
-//			if (!icommandlistener.getWorld().isLoaded(blockposition)) {
-//				throw new CommandException("commands.clone.outOfWorld");
-//			}
-
-			IBlockData iblockdata = icommandlistener.getWorld().getType(blockposition);
-			String s1 = Block.REGISTRY.b(iblockdata.getBlock()).toString();
-			commandsender.sendMessage(String.format(ChatColor.AQUA + "--- Details of block at (%d, %d, %d) ---", blockposition.getX(), blockposition.getY(), blockposition.getZ()));
-			commandsender.sendMessage(ChatColor.GRAY + "Name: " + ChatColor.RESET + s1);
-			commandsender.sendMessage(ChatColor.GRAY + "Data value: " + ChatColor.RESET + iblockdata.getBlock().toLegacyData(iblockdata));
-			Map<IBlockState<?>, Comparable<?>> map = iblockdata.u();
-
-			if (!map.isEmpty()) {
-				commandsender.sendMessage(ChatColor.GRAY + "Block state: " + ChatColor.RESET);
-			}
-
-			for (Entry<IBlockState<?>, Comparable<?>> map$entry : map.entrySet()) {
-				String s2 = map$entry.getValue().toString();
-
-				if (map$entry.getValue() == Boolean.TRUE) {
-					s2 = ChatColor.GREEN + s2;
-				} else if (map$entry.getValue() == Boolean.FALSE) {
-					s2 = ChatColor.RED + s2;
-				}
-
-				commandsender.sendMessage(ChatColor.GRAY + " - " + map$entry.getKey().a() + ": " + ChatColor.RESET + s2);
-			}
-
-			if (iblockdata.getBlock().isTileEntity()) {
-				commandsender.sendMessage(ChatColor.GRAY + "Block entity data: " + ChatColor.RESET + icommandlistener.getWorld().getTileEntity(blockposition).save(new NBTTagCompound()));
-			}
-
-			if (commandsender instanceof Player) {
-				if (s1.startsWith("minecraft:")) {
-					s1 = s1.substring("minecraft:".length());
-				}
-
-				StringBuilder stringbuilder = new StringBuilder(String.format("/setblock %d %d %d %s", blockposition.getX(), blockposition.getY(), blockposition.getZ(), s1));
-
-				if (!map.isEmpty()) {
-					stringbuilder.append(" ");
-					a.appendTo(stringbuilder, Iterables.transform(map.entrySet(), b));
-				}
-
-				String setblockButton = Utils.actionBoxJson("setblock", stringbuilder.toString());
-				Utils.jsonMsg((Player) commandsender, String.format("[{\"text\":\"\u00a77Actions: \"},%s]", setblockButton), false);
-			}
-
-			return true;
-		} catch (CommandException commandexception) {
-			IChatBaseComponent ichatbasecomponent = new ChatMessage(commandexception.getMessage(), commandexception.getArgs());
-			ichatbasecomponent.getChatModifier().setColor(EnumChatFormat.RED);
-			icommandlistener.sendMessage(ichatbasecomponent);
-			return true;
+		} else {
+			blockposition = CommandAbstract.a(icommandlistener, astring, 0, false);
 		}
+
+		if (blockposition == null) {
+			throw new CommandException("You're not pointing at a block");
+		}
+
+		if (!icommandlistener.getWorld().isLoaded(blockposition)) {
+			commandsender.sendMessage(ChatColor.GRAY.toString() + ChatColor.ITALIC + "Warning: The location you're accessing is not loaded yet");
+		}
+
+		IBlockData iblockdata = icommandlistener.getWorld().getType(blockposition);
+		String s1 = Block.REGISTRY.b(iblockdata.getBlock()).toString();
+		commandsender.sendMessage(String.format(ChatColor.AQUA + "--- Details of block at (%d, %d, %d) ---", blockposition.getX(), blockposition.getY(), blockposition.getZ()));
+		commandsender.sendMessage(ChatColor.GRAY + "Name: " + ChatColor.RESET + s1);
+		commandsender.sendMessage(ChatColor.GRAY + "Data value: " + ChatColor.RESET + iblockdata.getBlock().toLegacyData(iblockdata));
+		Map<IBlockState<?>, Comparable<?>> map = iblockdata.u();
+
+		if (!map.isEmpty()) {
+			commandsender.sendMessage(ChatColor.GRAY + "Block state: " + ChatColor.RESET);
+		}
+
+		for (Entry<IBlockState<?>, Comparable<?>> map$entry : map.entrySet()) {
+			String s2 = map$entry.getValue().toString();
+
+			if (map$entry.getValue() == Boolean.TRUE) {
+				s2 = ChatColor.GREEN + s2;
+			} else if (map$entry.getValue() == Boolean.FALSE) {
+				s2 = ChatColor.RED + s2;
+			}
+
+			commandsender.sendMessage(ChatColor.GRAY + " · " + map$entry.getKey().a() + ": " + ChatColor.RESET + s2);
+		}
+
+		if (iblockdata.getBlock().isTileEntity()) {
+			commandsender.sendMessage(ChatColor.GRAY + "Block entity data: " + ChatColor.RESET + icommandlistener.getWorld().getTileEntity(blockposition).save(new NBTTagCompound()));
+		}
+		if (s1.startsWith("minecraft:")) {
+			s1 = s1.substring("minecraft:".length());
+		}
+
+		StringBuilder stringbuilder = new StringBuilder(String.format("/setblock %d %d %d %s", blockposition.getX(), blockposition.getY(), blockposition.getZ(), s1));
+
+		if (!map.isEmpty()) {
+			stringbuilder.append(" ");
+			a.appendTo(stringbuilder, Iterables.transform(map.entrySet(), b));
+		}
+
+		String s2 = stringbuilder.toString();
+
+		if (commandsender instanceof Player) {
+			icommandlistener.sendMessage(Utils.plsRenameMe("Actions", Utils.suggestBoxJson("setblock", s2, false)));
+		} else {
+			commandsender.sendMessage(ChatColor.GRAY + "Set block command: " + ChatColor.RESET + s2);
+		}
+
+		return true;
 	}
 
 	@Override

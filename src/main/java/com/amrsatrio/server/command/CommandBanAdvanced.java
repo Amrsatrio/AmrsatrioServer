@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.amrsatrio.server.AmrsatrioServer.*;
+import static com.amrsatrio.server.ServerPlugin.*;
 
 public class CommandBanAdvanced implements CommandExecutor {
 	@Override

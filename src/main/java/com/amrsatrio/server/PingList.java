@@ -50,9 +50,9 @@ public class PingList extends JsonList<String, PingEntry> {
 
 			for (JsonElement jsonelement : jsonobject.get("times").getAsJsonArray()) {
 				try {
-					times.add(AmrsatrioServer.SDF.parse(jsonelement.getAsString()).getTime());
+					times.add(ServerPlugin.SDF.parse(jsonelement.getAsString()).getTime());
 				} catch (ParseException e) {
-					AmrsatrioServer.LOGGER.warn("Failed to parse date element {}, skipping. Is it edited?", jsonelement);
+					ServerPlugin.LOGGER.warn("Failed to parse date element {}, skipping. Is it edited?", jsonelement);
 				}
 			}
 		}
@@ -110,7 +110,7 @@ public class PingList extends JsonList<String, PingEntry> {
 		JsonArray jsonarray = new JsonArray();
 
 		for (long l : list) {
-			jsonarray.add(new JsonPrimitive(AmrsatrioServer.SDF.format(l)));
+			jsonarray.add(new JsonPrimitive(ServerPlugin.SDF.format(l)));
 		}
 
 		return jsonarray;

@@ -1,6 +1,6 @@
 package com.amrsatrio.server.command;
 
-import com.amrsatrio.server.AmrsatrioServer;
+import com.amrsatrio.server.ServerPlugin;
 import com.amrsatrio.server.Utils;
 import org.apache.commons.io.FilenameUtils;
 import org.bukkit.Bukkit;
@@ -88,21 +88,22 @@ public class CommandListFile implements CommandExecutor {
 			if (f.listFiles().length == 0) {
 				throw new CommandException("Empty folder");
 			}
-			//System.out.println(f);
+			//System.out.println(currentFile);
 			FileGui fg = new FileGui(v0, f);
 			fileGuis.put(v0, fg);
 			fg.refreshItems();
 			return true;
 		} catch (CommandException e) {
-			AmrsatrioServer.msg(a, "\u00a7c" + e.getMessage());
+			ServerPlugin.msg(a, "\u00a7c" + e.getMessage());
 			return true;
 		}
 	}
 
 	public class FileGui {
+		private final List<String> allowedExts = Arrays.asList("CONF", "CFG", "TXT", "LOG", "JSON", "PROPERTIES", "YML", "INI", "DAT", "NBT", "BAT", "SCHEMATIC");
 		public boolean switching = false;
-		private Player pl;
-		private File f;
+		private Player player;
+		private File currentFile;
 		private int pages;
 		private int page = 1;
 		private ArrayList<File> entries = new ArrayList<>();
@@ -111,17 +112,20 @@ public class CommandListFile implements CommandExecutor {
 
 		public FileGui(Player a, File b) {
 			//System.out.println("Creating filegui instance: " + b);
-			pl = a;
-			f = b;
+			player = a;
+			currentFile = b;
 			ArrayList<File> folders = new ArrayList<>();
 			ArrayList<File> files = new ArrayList<>();
-			if (f.getParentFile() != null) {
-				files.add(new File(f, nameForParent));
+
+			if (currentFile.getParentFile() != null) {
+				files.add(new File(currentFile, nameForParent));
 			}
-			for (File i : f.listFiles()) {
+
+			for (File i : currentFile.listFiles()) {
 				ArrayList<File> toAdd = i.isDirectory() ? folders : files;
 				toAdd.add(i);
 			}
+
 			Collections.sort(files);
 			Collections.sort(folders);
 			entries.addAll(folders);
@@ -133,7 +137,9 @@ public class CommandListFile implements CommandExecutor {
 			if (a.getCurrentItem().getItemMeta() == null) {
 				return;
 			}
+
 			a.setCancelled(true);
+
 			if (a.getSlot() == PREV_SLOT) {
 				page--;
 				refreshItems();
@@ -144,28 +150,32 @@ public class CommandListFile implements CommandExecutor {
 				if (a.getClick() != ClickType.DOUBLE_CLICK) {
 					return;
 				}
+
 				String clickedDir = ChatColor.stripColor(a.getCurrentItem().getItemMeta().getDisplayName());
-				final String thef = new File(f, clickedDir).getAbsolutePath();
-				List<String> allowedExts = Arrays.asList("CONF", "CFG", "TXT", "LOG", "JSON", "PROPERTIES", "YML", "INI", "DAT", "NBT", "BAT", "SCHEMATIC");
+				final String thef = new File(currentFile, clickedDir).getAbsolutePath();
+
 				if (new File(thef).isDirectory()) {
 					String thef2 = thef;
-					File pf = f.getParentFile();
+					File pf = currentFile.getParentFile();
+
 					if (clickedDir.equals(nameForParent) && pf != null) {
 						thef2 = pf.getAbsolutePath();
 					}
-					//CommandListFile.fileGuis.remove(pl);
-					Bukkit.dispatchCommand(pl, "listfile " + thef2);
+
+					//CommandListFile.fileGuis.remove(player);
+					Bukkit.dispatchCommand(player, "listfile " + thef2);
 					return;
 				} else if (allowedExts.contains(FilenameUtils.getExtension(clickedDir).toUpperCase())) {
 					new Thread(new Runnable() {
 						@Override
 						public void run() {
-							Utils.a(pl, new File(thef));
+							Utils.a(player, new File(thef));
 						}
 					}).start();
 					return;
 				}
 			}
+
 			refreshItems();
 		}
 
@@ -173,36 +183,43 @@ public class CommandListFile implements CommandExecutor {
 			if (switching) {
 				return;
 			}
-			String path = f.getAbsolutePath().replace("\\", "\\\\");
-			Utils.jsonMsg(pl, "{\"text\":\"\u00a7oGo to " + path + "\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/ls " + path + "\"}}");
+
+			String path = currentFile.getAbsolutePath().replace("\\", "\\\\");
+			Utils.jsonMsg(player, "{\"text\":\"\u00a7oGo to " + path + "\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/ls " + path + "\"}}");
+
 			if (!switching) {
-				fileGuis.remove(pl);
+				fileGuis.remove(player);
 			}
 		}
 
 		private void refreshItems() {
 			try {
 				//System.out.println(entries);
-				//System.out.println("Refreshing " + f);
+				//System.out.println("Refreshing " + currentFile);
 				Map<Integer, ItemStack> cont = new HashMap<>();
 				int i = 0;
+
 				for (int var0 = (page - 1) * 5 * 9; var0 < entries.size(); var0++) {
 					ItemStack itemstack = getItemForFile(entries.get(var0));
 					cont.put(i++, itemstack);
+
 					if (i >= 5 * 9) {
 						break;
 					}
+
 					if (page - 1 > 0) {
 						ItemStack back = new ItemStack(Material.ARROW);
 						Utils.applyName(back, "< Page " + (page - 1));
 						cont.put(PREV_SLOT, back);
 					}
+
 					if (page + 1 <= pages) {
 						ItemStack next = new ItemStack(Material.ARROW);
 						Utils.applyName(next, "Page " + (page + 1) + " >");
 						cont.put(NEXT_SLOT, next);
 					}
 				}
+
 				show(cont);
 			} catch (Throwable e) {
 				Utils.broke(e);
@@ -211,14 +228,16 @@ public class CommandListFile implements CommandExecutor {
 		}
 
 		public void show(Map<Integer, ItemStack> cont) {//(int) Math.ceil((double) entries.size() / 9)
-			Inventory inv = Bukkit.createInventory(null, 6 * 9, (f.getName().isEmpty() ? "Root" : f.getName()) + (pages > 1 ? String.format(" (%d/%d)", page, pages) : ""));
-			//System.out.println("Opening " + f + ": " + inv.getName());
+			Inventory inv = Bukkit.createInventory(null, 6 * 9, (currentFile.getName().isEmpty() ? "Root" : currentFile.getName()) + (pages > 1 ? String.format(" (%d/%d)", page, pages) : ""));
+			//System.out.println("Opening " + currentFile + ": " + inv.getName());
+
 			for (Entry<Integer, ItemStack> i : cont.entrySet()) {
 				inv.setItem(i.getKey(), i.getValue());
 			}
+
 			switching = true;
-			// pl.closeInventory();
-			pl.openInventory(inv);
+			// player.closeInventory();
+			player.openInventory(inv);
 			switching = false;
 		}
 	}

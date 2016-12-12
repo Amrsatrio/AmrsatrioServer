@@ -1,5 +1,5 @@
 name: AmrsatrioServer
-main: com.amrsatrio.server.AmrsatrioServer
+main: com.amrsatrio.server.ServerPlugin
 version: 1.0.674
 authors:
   - Amrsatrio
@@ -9,26 +9,15 @@ commands:
 #  anon:
 #    description: Mask players with their IP address.
 #    usage: /<command>
-  sysinfo:
-    description: Display system info. Sometimes it might not work.
-    usage: /<command>
   banadv:
     description: Advanced version of /ban.
     usage: /<command> -p <player> [-t <duration>] [-r <reason>]
   togglebantnt:
     description: Toggles prevention of TNT explosions and TNT removals.
     usage: /<command>
-    aliases: bantnt
-  tpworld:
-    description: Teleports you to another world. Highly experimental.
-    usage: /<command> <worldName...>
-    aliases:
-      - changeworld
-      - tpw
   togglechatcaps:
     description: Toggle lowercasing chat messages when there's too much capital letters. This feature doesn't work correctly in some cases.
     usage: /<command>
-    aliases: chatfiltercaps
   nameitem:
     description: Format the currently holding item's name.
     usage: /<command> <name...>
@@ -37,10 +26,6 @@ commands:
     description: Displays all Minecraft formatting codes.
     usage: /<command>
     aliases: colguide
-#  blockinfo:
-#    description: Shows your hovered block's info.
-#    usage: /<command>
-#    aliases: coords
   download:
     description: Experimentally download a file into the server folder.
     usage: /<command> <url...>
@@ -59,15 +44,12 @@ commands:
     description: Open the banner generator GUI.
     usage: /command
   listfile:
-    description: List files in folder in a GUI. If path is undefined, this server's folder will be opened.
+    description: List files in folder in a GUI. If path is not defined, this server's folder will be opened.
     usage: /<command> [path]
     aliases: ls
   loottable:
     description: View a loot table in a temporary container or drop all of its items.
     usage: /<command> <loot table name> [drop?]
-#  pathdebug:
-#    description: Show the entity pathfinding lines
-#    usage: /<command>
   toggleverbose:
     description: Toggle broadcasting of detailed plugin error messages.
     usage: /<command>
@@ -92,9 +74,6 @@ commands:
   text:
     description: Make blocks forming a text.
     usage: /<command> <text...>
-  testselector-bukkit:
-    description: Test a selector expression.
-    usage: /<command> <expression>
   svping:
     description: check that the server is still responding
     usage: /<command> [arg0]
