@@ -130,24 +130,9 @@ public class Authenticator {
 		if (!noAG) {
 			msg(asPlayer, "\u00a7aAccess granted.");
 			asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1.25f);
-			Bukkit.getScheduler().scheduleSyncDelayedTask(thePlugin, new Runnable() {
-				@Override
-				public void run() {
-					asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1.5f);
-				}
-			}, 4L);
-			Bukkit.getScheduler().scheduleSyncDelayedTask(thePlugin, new Runnable() {
-				@Override
-				public void run() {
-					asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1.75f);
-				}
-			}, 8L);
-			Bukkit.getScheduler().scheduleSyncDelayedTask(thePlugin, new Runnable() {
-				@Override
-				public void run() {
-					asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 2f);
-				}
-			}, 12L);
+			Bukkit.getScheduler().scheduleSyncDelayedTask(thePlugin, () -> asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1.5f), 4L);
+			Bukkit.getScheduler().scheduleSyncDelayedTask(thePlugin, () -> asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1.75f), 8L);
+			Bukkit.getScheduler().scheduleSyncDelayedTask(thePlugin, () -> asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 2f), 12L);
 		}
 
 		afterFunction.run();

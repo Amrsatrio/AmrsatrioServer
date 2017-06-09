@@ -12,13 +12,13 @@ public class Texter {
 	@SuppressWarnings("deprecation")
 	public static boolean text(String text, Player pl, boolean vertical) {
 		Location pll = pl.getLocation();
-		char[] chars = text.toString().trim().toCharArray();
-		ArrayList<String> toSet = new ArrayList<String>(8);
+		char[] chars = text.trim().toCharArray();
+		ArrayList<String> toSet = new ArrayList<>(8);
 		try {
 			for (int i = 0; i < 8; i++) {
 				StringBuilder sb = new StringBuilder();
-				for (int j = 0; j < chars.length; j++) {
-					sb.append(getTextFont(chars[j])[i]);
+				for (char aChar : chars) {
+					sb.append(getTextFont(aChar)[i]);
 					sb.append(" ");
 				}
 				toSet.add(sb.toString());
@@ -109,7 +109,7 @@ public class Texter {
 				curblock.setData(setd);
 			}
 		}
-		pl.sendMessage(String.format("Server> Created the text \"%s\" (%d character(s)) by changing %d blocks (%d non-air blocks).", new Object[]{text.toString().trim(), Integer.valueOf(chars.length), Integer.valueOf(rpl), Integer.valueOf(rplna)}));
+		pl.sendMessage(String.format("Server> Created the text \"%s\" (%d character(s)) by changing %d blocks (%d non-air blocks).", new Object[]{text.trim(), chars.length, rpl, rplna}));
 		return true;
 	}
 

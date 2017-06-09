@@ -5,8 +5,7 @@ import com.amrsatrio.server.ServerPlugin;
 import com.amrsatrio.server.Utils;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.collect.Iterables;
-import net.minecraft.server.v1_11_R1.*;
+import net.minecraft.server.v1_12_R1.*;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
@@ -18,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 //TODO: REFLECTION
 public class CommandBlockInfo extends CustomizedPluginCommand {
@@ -35,7 +35,7 @@ public class CommandBlockInfo extends CustomizedPluginCommand {
 	}
 
 	public CommandBlockInfo() {
-		super("blockinfo", "Shows the block-at-the-specified-coordinates' info.", "/<command> [<x> <y> <z>]", new ArrayList<String>());
+		super("blockinfo", "Shows the block-at-the-specified-coordinates' info.", "/<command> [<x> <y> <z>]", new ArrayList<>());
 	}
 
 	@Override
@@ -60,19 +60,21 @@ public class CommandBlockInfo extends CustomizedPluginCommand {
 			throw new CommandException("You're not pointing at a block");
 		}
 
+		ChatColor chatcolor = ChatColor.GOLD;
+
 		if (!icommandlistener.getWorld().isLoaded(blockposition)) {
-			commandsender.sendMessage(ChatColor.GRAY.toString() + ChatColor.ITALIC + "Warning: The location you're accessing is not loaded yet");
+			commandsender.sendMessage(chatcolor.toString() + ChatColor.ITALIC + "Warning: The location you're accessing is not loaded yet");
 		}
 
 		IBlockData iblockdata = icommandlistener.getWorld().getType(blockposition);
 		String s1 = Block.REGISTRY.b(iblockdata.getBlock()).toString();
 		commandsender.sendMessage(String.format(ChatColor.AQUA + "--- Details of block at (%d, %d, %d) ---", blockposition.getX(), blockposition.getY(), blockposition.getZ()));
-		commandsender.sendMessage(ChatColor.GRAY + "Name: " + ChatColor.RESET + s1);
-		commandsender.sendMessage(ChatColor.GRAY + "Data value: " + ChatColor.RESET + iblockdata.getBlock().toLegacyData(iblockdata));
-		Map<IBlockState<?>, Comparable<?>> map = iblockdata.u();
+		commandsender.sendMessage(chatcolor + "Name: " + ChatColor.RESET + s1);
+		commandsender.sendMessage(chatcolor + "Data value: " + ChatColor.RESET + iblockdata.getBlock().toLegacyData(iblockdata));
+		Map<IBlockState<?>, Comparable<?>> map = iblockdata.t();
 
 		if (!map.isEmpty()) {
-			commandsender.sendMessage(ChatColor.GRAY + "Block state: " + ChatColor.RESET);
+			commandsender.sendMessage(chatcolor + "Block state: " + ChatColor.RESET);
 		}
 
 		for (Entry<IBlockState<?>, Comparable<?>> map$entry : map.entrySet()) {
@@ -84,11 +86,11 @@ public class CommandBlockInfo extends CustomizedPluginCommand {
 				s2 = ChatColor.RED + s2;
 			}
 
-			commandsender.sendMessage(ChatColor.GRAY + " · " + map$entry.getKey().a() + ": " + ChatColor.RESET + s2);
+			commandsender.sendMessage(chatcolor + " · " + map$entry.getKey().a() + ": " + ChatColor.RESET + s2);
 		}
 
 		if (iblockdata.getBlock().isTileEntity()) {
-			commandsender.sendMessage(ChatColor.GRAY + "Block entity data: " + ChatColor.RESET + icommandlistener.getWorld().getTileEntity(blockposition).save(new NBTTagCompound()));
+			commandsender.sendMessage(chatcolor + "Block entity data: " + ChatColor.RESET + icommandlistener.getWorld().getTileEntity(blockposition).save(new NBTTagCompound()));
 		}
 		if (s1.startsWith("minecraft:")) {
 			s1 = s1.substring("minecraft:".length());
@@ -98,7 +100,7 @@ public class CommandBlockInfo extends CustomizedPluginCommand {
 
 		if (!map.isEmpty()) {
 			stringbuilder.append(" ");
-			a.appendTo(stringbuilder, Iterables.transform(map.entrySet(), b));
+			a.appendTo(stringbuilder, map.entrySet().stream().map(b).collect(Collectors.toList()));
 		}
 
 		String s2 = stringbuilder.toString();
@@ -106,7 +108,7 @@ public class CommandBlockInfo extends CustomizedPluginCommand {
 		if (commandsender instanceof Player) {
 			icommandlistener.sendMessage(Utils.plsRenameMe("Actions", Utils.suggestBoxJson("setblock", s2, false)));
 		} else {
-			commandsender.sendMessage(ChatColor.GRAY + "Set block command: " + ChatColor.RESET + s2);
+			commandsender.sendMessage(chatcolor + "Set block command: " + ChatColor.RESET + s2);
 		}
 
 		return true;
@@ -114,6 +116,6 @@ public class CommandBlockInfo extends CustomizedPluginCommand {
 
 	@Override
 	public List<String> tabComplete(CommandSender sender, String alias, String[] args, Location location) throws IllegalArgumentException {
-		return args.length > 0 && args.length <= 3 ? CommandAbstract.a(args, 0, location == null ? null : new BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ())) : Collections.<String>emptyList();
+		return args.length > 0 && args.length <= 3 ? CommandAbstract.a(args, 0, location == null ? null : new BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ())) : Collections.emptyList();
 	}
 }

@@ -3,7 +3,7 @@ package com.amrsatrio.server.command;
 import com.amrsatrio.server.Messages;
 import com.amrsatrio.server.ServerPlugin;
 import com.amrsatrio.server.Utils;
-import net.minecraft.server.v1_11_R1.*;
+import net.minecraft.server.v1_12_R1.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginIdentifiableCommand;

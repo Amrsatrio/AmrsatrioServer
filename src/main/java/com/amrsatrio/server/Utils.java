@@ -4,20 +4,20 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import net.minecraft.server.v1_11_R1.*;
-import net.minecraft.server.v1_11_R1.ChatClickable.EnumClickAction;
-import net.minecraft.server.v1_11_R1.IChatBaseComponent.ChatSerializer;
+import net.minecraft.server.v1_12_R1.*;
+import net.minecraft.server.v1_12_R1.ChatClickable.EnumClickAction;
+import net.minecraft.server.v1_12_R1.IChatBaseComponent.ChatSerializer;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.*;
-import org.bukkit.craftbukkit.v1_11_R1.CraftServer;
-import org.bukkit.craftbukkit.v1_11_R1.command.CraftBlockCommandSender;
-import org.bukkit.craftbukkit.v1_11_R1.command.ProxiedNativeCommandSender;
-import org.bukkit.craftbukkit.v1_11_R1.entity.CraftMinecartCommand;
-import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_12_R1.CraftServer;
+import org.bukkit.craftbukkit.v1_12_R1.command.CraftBlockCommandSender;
+import org.bukkit.craftbukkit.v1_12_R1.command.ProxiedNativeCommandSender;
+import org.bukkit.craftbukkit.v1_12_R1.entity.CraftMinecartCommand;
+import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TippedArrow;
 import org.bukkit.entity.minecart.CommandMinecart;
@@ -50,7 +50,7 @@ public enum Utils {
 	public static final long GB_IN_BYTES = MB_IN_BYTES * 1024;
 	public static final long TB_IN_BYTES = GB_IN_BYTES * 1024;
 	public static final long PB_IN_BYTES = TB_IN_BYTES * 1024;
-	public static final int FLAG_SHORTER = 1 << 0;
+	public static final int FLAG_SHORTER = 1;
 	public static final int FLAG_CALCULATE_ROUNDED = 1 << 1;
 	private static final int BUFFER = 32768;
 
@@ -62,19 +62,19 @@ public enum Utils {
 				case "NBT":
 				case "DAT":
 				case "SCHEMATIC":
-					ServerPlugin.msg(a, "\u00a7oAttempting to read this file as NBT", msgHead);
+					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read this file as NBT", msgHead);
 					try {
 						FileInputStream nbtfis = new FileInputStream(b);
 						NBTTagCompound root = NBTCompressedStreamTools.a(nbtfis);
 						nbtfis.close();
 						a.sendMessage(root.toString());
 					} catch (ZipException e) {
-						ServerPlugin.msg(a, "\u00a7oNot an NBT file!", msgHead);
+						ServerPlugin.msg(a, ChatColor.ITALIC + "Not an NBT file!", msgHead);
 					}
 					break;
 				case "JSON":
 				case "MCMETA":
-					ServerPlugin.msg(a, "\u00a7oAttempting to read this file as JSON", msgHead);
+					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read this file as JSON", msgHead);
 					JsonParser parser = new JsonParser();
 					FileReader fr = new FileReader(b);
 					JsonElement json = parser.parse(fr);
@@ -84,11 +84,11 @@ public enum Utils {
 					break;
 				case "CONF":
 				case "PROPERTIES":
-					ServerPlugin.msg(a, "\u00a7oAttempting to read properties file and showing in inventory", msgHead);
+					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read properties file and showing in inventory", msgHead);
 					new PropertiesEditor(a, b).show();
 					break;
 				default:
-					ServerPlugin.msg(a, "\u00a7oAttempting to read this file as text", msgHead);
+					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read this file as text", msgHead);
 					try (BufferedReader br = new BufferedReader(new FileReader(b))) {
 						String cl;
 						while ((cl = br.readLine()) != null) {
@@ -104,7 +104,7 @@ public enum Utils {
 	}
 
 	public static void actionBarWithoutReflection(Player player, IChatBaseComponent ichatbasecomponent) {
-		((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(ichatbasecomponent, (byte) 2));
+		((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(ichatbasecomponent, ChatMessageType.GAME_INFO));
 	}
 
 	public static void actionBarWithoutReflection(Player player, String s) {
@@ -130,8 +130,8 @@ public enum Utils {
 			return;
 		}
 
-		Player asPlayer = (Player) commandsender;
-		asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0f, 1);
+		Player player = (Player) commandsender;
+		player.playSound(player.getLocation(), "minecraft:block.note.pling", 3.0f, 1);
 	}
 
 	public static void broke(Throwable throwable) {
@@ -170,11 +170,11 @@ public enum Utils {
 //		Bukkit.broadcastMessage("\u00a77How about reporting this to me? Click here to report (coming soon)!");
 	}
 
-	public static ItemStack applyName(ItemStack a, String b) {
-		ItemMeta im = a.getItemMeta();
-		im.setDisplayName(b);
-		a.setItemMeta(im);
-		return a;
+	public static ItemStack applyName(ItemStack itemstack, String s) {
+		ItemMeta itemmeta = itemstack.getItemMeta();
+		itemmeta.setDisplayName(s);
+		itemstack.setItemMeta(itemmeta);
+		return itemstack;
 	}
 
 	public static String freeOf(long available, long total) {
@@ -210,6 +210,7 @@ public enum Utils {
 		return createUniqueCopyName(path, FilenameUtils.removeExtension(fileName) + " - Copy." + FilenameUtils.getExtension(fileName));
 	}
 
+	//TODO simple argument
 	public static String fancyTime(long l, boolean simple) {
 		return DurationFormatUtils.formatDurationWords(l, true, true);
 	}
@@ -417,18 +418,18 @@ public enum Utils {
 //	}
 
 	public static List<String> getExistingWorlds() {
-		List<String> res = new ArrayList<>();
-		for (File i : Bukkit.getWorldContainer().listFiles()) {
-			if (i.isDirectory() && !i.getName().endsWith("_nether") && !i.getName().endsWith("_the_end")) {
-				for (String j : i.list()) {
-					if (j.equals("level.dat")) {
-						res.add(i.getName());
-						break;
-					}
+		List<String> list = new ArrayList<>();
+
+		for (File file : Bukkit.getWorldContainer().listFiles()) {
+			if (file.isDirectory() && !file.getName().endsWith("_nether") && !file.getName().endsWith("_the_end")) {
+				if (Arrays.asList(file.list()).contains("level.dat")) {
+					list.add(file.getName());
 				}
 			}
 		}
-		return res;
+
+		list.sort(String::compareToIgnoreCase);
+		return Collections.unmodifiableList(list);
 	}
 
 	public static File getFile(File curdir, String file) {
@@ -533,8 +534,11 @@ public enum Utils {
 
 	public static void tabHeaderFooter(Player player, String s, String s1) {
 		try {
-			PacketPlayOutPlayerListHeaderFooter packetplayoutplayerlistheaderfooter = new PacketPlayOutPlayerListHeaderFooter(new ChatComponentText(s));
-			Field field = packetplayoutplayerlistheaderfooter.getClass().getDeclaredField("b");
+			PacketPlayOutPlayerListHeaderFooter packetplayoutplayerlistheaderfooter = new PacketPlayOutPlayerListHeaderFooter();
+			Field field = packetplayoutplayerlistheaderfooter.getClass().getDeclaredField("a");
+			field.setAccessible(true);
+			field.set(packetplayoutplayerlistheaderfooter, new ChatComponentText(s));
+			field = packetplayoutplayerlistheaderfooter.getClass().getDeclaredField("b");
 			field.setAccessible(true);
 			field.set(packetplayoutplayerlistheaderfooter, new ChatComponentText(s1));
 			((CraftPlayer) player).getHandle().playerConnection.sendPacket(packetplayoutplayerlistheaderfooter);
@@ -607,12 +611,7 @@ public enum Utils {
 		}
 
 		final Player asPlayer = (Player) commandsender;
-		Runnable sound = new Runnable() {
-			@Override
-			public void run() {
-				asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0F, 0.7F);
-			}
-		};
+		Runnable sound = () -> asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0F, 0.7F);
 		sound.run();
 		Bukkit.getScheduler().scheduleSyncDelayedTask(javaplugin, sound, 4L);
 		Bukkit.getScheduler().scheduleSyncDelayedTask(javaplugin, sound, 8L);
@@ -742,7 +741,7 @@ public enum Utils {
 
 	public static void printListNumbered(CommandSender commandSender, List<?> list) {
 		for (int i = 0; i < list.size(); i++) {
-			commandSender.sendMessage(ChatColor.GRAY.toString() + (i + 1) + ". " + ChatColor.RESET + list.get(i));
+			commandSender.sendMessage(ChatColor.GOLD.toString() + (i + 1) + ". " + ChatColor.RESET + list.get(i));
 		}
 	}
 
@@ -770,15 +769,15 @@ public enum Utils {
 	}
 
 	public static IChatBaseComponent plsRenameMe(String s, IChatBaseComponent ichatbasecomponent) {
-		return new ChatComponentText(s + ": ").setChatModifier(new ChatModifier().setColor(EnumChatFormat.GRAY)).addSibling(new ChatComponentText("").setChatModifier(new ChatModifier().setColor(EnumChatFormat.WHITE)).addSibling(ichatbasecomponent));
+		return new ChatComponentText(s + ": ").setChatModifier(new ChatModifier().setColor(EnumChatFormat.GOLD)).addSibling(new ChatComponentText("").setChatModifier(new ChatModifier().setColor(EnumChatFormat.WHITE)).addSibling(ichatbasecomponent));
 	}
 
-	public static net.minecraft.server.v1_11_R1.ItemStack getTippedArrowItem(TippedArrow tippedarrow) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+	public static net.minecraft.server.v1_12_R1.ItemStack getTippedArrowItem(TippedArrow tippedarrow) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 		// TODO This is NMS reflection
 		Object object = getHandle(tippedarrow);
 		Method method = object.getClass().getDeclaredMethod("j");
 		method.setAccessible(true);
-		return (net.minecraft.server.v1_11_R1.ItemStack) method.invoke(object);
+		return (net.minecraft.server.v1_12_R1.ItemStack) method.invoke(object);
 	}
 
 	public static Collection<MinecraftKey> getAvailableLootTables(CommandSender commandsender) {

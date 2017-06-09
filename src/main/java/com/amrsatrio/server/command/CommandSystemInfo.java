@@ -1,17 +1,17 @@
 package com.amrsatrio.server.command;
 
-import net.minecraft.server.v1_11_R1.CommandException;
+import net.minecraft.server.v1_12_R1.CommandException;
 import org.bukkit.ChatColor;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
 
-import java.util.Arrays;
+import java.util.Collections;
 
 public class CommandSystemInfo extends CustomizedPluginCommand {
 	private static final ChatColor MSG_COLOR = ChatColor.GRAY;
 
 	public CommandSystemInfo() {
-		super("systeminfo", "Display system info. Sometimes it might not work.", "/<command>", Arrays.asList("systeminfo"));
+		super("systeminfo", "Display system info. Sometimes it might not work.", "/<command>", Collections.singletonList("systeminfo"));
 		setPermission("amrsatrioserver.sysinfo");
 	}
 

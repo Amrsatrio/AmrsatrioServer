@@ -1,6 +1,6 @@
 package com.amrsatrio.server.nmscommand;
 
-import net.minecraft.server.v1_11_R1.*;
+import net.minecraft.server.v1_12_R1.*;
 
 import java.util.Arrays;
 import java.util.List;
@@ -22,7 +22,7 @@ public class CommandTestSelector extends CommandAbstract {
 	}
 
 	@Override
-	public void execute(MinecraftServer minecraftServer, ICommandListener iCommandListener, String[] strings) throws net.minecraft.server.v1_11_R1.CommandException {
+	public void execute(MinecraftServer minecraftServer, ICommandListener iCommandListener, String[] strings) throws net.minecraft.server.v1_12_R1.CommandException {
 		iCommandListener.sendMessage(new ChatMessage("DEBUG " + Arrays.toString(strings)));
 		iCommandListener.sendMessage(new ChatMessage("DEBUG " + iCommandListener));
 

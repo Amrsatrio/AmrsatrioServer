@@ -2,7 +2,7 @@ package com.amrsatrio.server.command;
 
 import com.amrsatrio.server.Messages;
 import com.amrsatrio.server.Utils;
-import net.minecraft.server.v1_11_R1.*;
+import net.minecraft.server.v1_12_R1.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -17,7 +17,7 @@ public class CommandTpWorld extends CustomizedPluginCommand {
 	private static final String TAG = "Teleporter";
 
 	public CommandTpWorld() {
-		super("tpworld", "Teleports you to another world. Highly experimental.", "/<command> <worldName...>", Arrays.asList("changeworld", "tpw"));
+		super("tpworld", "Teleports you to another world. Highly experimental.", "/<command> [worldName...|index]", Arrays.asList("changeworld", "tpw"));
 	}
 
 	@Override
@@ -26,35 +26,47 @@ public class CommandTpWorld extends CustomizedPluginCommand {
 			throw new NonPlayerException();
 		}
 
+		List<String> list = Utils.getExistingWorlds();
+
 		if (astring.length == 0) {
-			throw new ExceptionUsage(getUsage(s));
-		}
-
-		Player p = (Player) commandsender;
-		String worldname = Utils.buildString(astring, 0);
-		IChatBaseComponent worldNameAsComponent = new ChatComponentText(worldname).setChatModifier(new ChatModifier().setBold(true));
-//		String worldbefore = p.getWorld().getName();
-		List<String> exworlds = Utils.getExistingWorlds();
-
-		if (!exworlds.contains(worldname)) {
-			icommandlistener.sendMessage(createMessage(new ChatMessage(Messages.Commands.TPW_NONEXISTENT_TITLE, worldNameAsComponent), TAG));
-			Utils.printListNumbered(commandsender, exworlds);
+			icommandlistener.sendMessage(createMessage(new ChatComponentText("Existing worlds are:"), TAG));
+			Utils.printListNumbered(commandsender, list);
 			return true;
 		}
 
-		icommandlistener.sendMessage(createMessage(new ChatMessage(Messages.Commands.TPW_TELEPORTING, worldNameAsComponent), TAG));
-		World w = Bukkit.getWorld(worldname);
+		Player player = (Player) commandsender;
+		String s1 = a(list, astring);
+		IChatBaseComponent ichatbasecomponent = new ChatComponentText(s1).setChatModifier(new ChatModifier().setBold(true));
+//		String worldbefore = player.getWorld().getName();
 
-		if (w == null) {
-			Bukkit.getWorlds().add(w = Bukkit.createWorld(new WorldCreator(worldname)));
+		if (!list.contains(s1)) {
+			icommandlistener.sendMessage(createMessage(new ChatMessage(Messages.Commands.TPW_NONEXISTENT_TITLE, ichatbasecomponent), TAG));
+			Utils.printListNumbered(commandsender, list);
+			return true;
 		}
 
-		p.teleport(new Location(w, w.getSpawnLocation().getX(), w.getSpawnLocation().getY(), w.getSpawnLocation().getZ()));
-//		msg(commandsender, "WARNING: This feature is very experimental. The scoreboard in " + worldbefore + " are mixed with the scoreboard in " + worldname + ". So don't try to teleport to lots-of-command-blocks maps!");
-		IChatBaseComponent s1 = new ChatMessage(Messages.Commands.TPW_SUCCESS, commandsender.getName(), worldNameAsComponent);
-		icommandlistener.sendMessage(createMessage(s1, TAG));
-		broadcastCommandMessage(commandsender, s1.getText(), false);
+		icommandlistener.sendMessage(createMessage(new ChatMessage(Messages.Commands.TPW_TELEPORTING, ichatbasecomponent), TAG));
+		World world = Bukkit.getWorld(s1);
+
+		if (world == null) {
+			Bukkit.getWorlds().add(world = Bukkit.createWorld(new WorldCreator(s1)));
+		}
+
+		// TODO make the player tp'd to its last position in that world instead of to the spawnpoint
+		player.teleport(new Location(world, world.getSpawnLocation().getX(), world.getSpawnLocation().getY(), world.getSpawnLocation().getZ()));
+//		msg(commandsender, "WARNING: This feature is very experimental. The scoreboard in " + worldbefore + " are mixed with the scoreboard in " + s1 + ". So don't try to teleport to lots-of-command-blocks maps!");
+		IChatBaseComponent ichatbasecomponent1 = new ChatMessage(Messages.Commands.TPW_SUCCESS, commandsender.getName(), ichatbasecomponent);
+		icommandlistener.sendMessage(createMessage(ichatbasecomponent1, TAG));
+		broadcastCommandMessage(commandsender, ichatbasecomponent1.getText(), false);
 		return true;
+	}
+
+	private String a(List<String> list, String[] astring) {
+		try {
+			return list.get(Integer.parseInt(astring[0]) - 1);
+		} catch (NumberFormatException e) {
+			return Utils.buildString(astring, 0);
+		}
 	}
 
 //	private static final Function<ChatColor, EnumChatFormat> TO_NMS = new Function<ChatColor, EnumChatFormat>() {

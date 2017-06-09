@@ -1,6 +1,6 @@
 package com.amrsatrio.server.command;
 
-import net.minecraft.server.v1_11_R1.CommandException;
+import net.minecraft.server.v1_12_R1.CommandException;
 
 public class NonPlayerException extends CommandException {
 	public NonPlayerException() {

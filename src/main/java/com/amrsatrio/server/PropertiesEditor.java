@@ -1,13 +1,13 @@
 package com.amrsatrio.server;
 
-import net.minecraft.server.v1_11_R1.ChatClickable;
-import net.minecraft.server.v1_11_R1.ChatClickable.EnumClickAction;
-import net.minecraft.server.v1_11_R1.ChatComponentText;
-import net.minecraft.server.v1_11_R1.ChatModifier;
+import net.minecraft.server.v1_12_R1.ChatClickable;
+import net.minecraft.server.v1_12_R1.ChatClickable.EnumClickAction;
+import net.minecraft.server.v1_12_R1.ChatComponentText;
+import net.minecraft.server.v1_12_R1.ChatModifier;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;

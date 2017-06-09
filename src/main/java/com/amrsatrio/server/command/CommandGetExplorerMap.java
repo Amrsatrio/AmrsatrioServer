@@ -1,7 +1,7 @@
 package com.amrsatrio.server.command;
 
-import net.minecraft.server.v1_11_R1.*;
-import net.minecraft.server.v1_11_R1.MapIcon.Type;
+import net.minecraft.server.v1_12_R1.*;
+import net.minecraft.server.v1_12_R1.MapIcon.Type;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
@@ -9,14 +9,14 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Random;
 
-import static net.minecraft.server.v1_11_R1.MapIcon.Type.MANSION;
-import static net.minecraft.server.v1_11_R1.MapIcon.Type.MONUMENT;
+import static net.minecraft.server.v1_12_R1.MapIcon.Type.MANSION;
+import static net.minecraft.server.v1_12_R1.MapIcon.Type.MONUMENT;
 
 public class CommandGetExplorerMap extends CustomizedPluginCommand {
 	private static final Random RANDOM = new Random();
 
 	public CommandGetExplorerMap() {
-		super("getexplorermap", "Gives you an random explorer map like the one given by cartographer villagers.", "/<command>", new ArrayList<String>());
+		super("getexplorermap", "Gives you an random explorer map like the one given by cartographer villagers.", "/<command>", new ArrayList<>());
 	}
 
 	@Override
