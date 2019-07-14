@@ -1,44 +1,85 @@
 package com.amrsatrio.server.command;
 
-import net.minecraft.server.v1_12_R1.*;
-import net.minecraft.server.v1_12_R1.MapIcon.Type;
-import org.bukkit.Bukkit;
-import org.bukkit.command.CommandSender;
+import com.amrsatrio.server.Messages;
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.server.v1_14_R1.BlockPosition;
+import net.minecraft.server.v1_14_R1.ChatMessage;
+import net.minecraft.server.v1_14_R1.CommandException;
+import net.minecraft.server.v1_14_R1.CommandListenerWrapper;
+import net.minecraft.server.v1_14_R1.EntityItem;
+import net.minecraft.server.v1_14_R1.EntityPlayer;
+import net.minecraft.server.v1_14_R1.ItemStack;
+import net.minecraft.server.v1_14_R1.ItemWorldMap;
+import net.minecraft.server.v1_14_R1.MapIcon;
+import net.minecraft.server.v1_14_R1.World;
+import net.minecraft.server.v1_14_R1.WorldMap;
 
-import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Random;
 
-import static net.minecraft.server.v1_12_R1.MapIcon.Type.MANSION;
-import static net.minecraft.server.v1_12_R1.MapIcon.Type.MONUMENT;
-
-public class CommandGetExplorerMap extends CustomizedPluginCommand {
+public class CommandGetExplorerMap extends AbstractBrigadierCommand {
 	private static final Random RANDOM = new Random();
 
 	public CommandGetExplorerMap() {
-		super("getexplorermap", "Gives you an random explorer map like the one given by cartographer villagers.", "/<command>", new ArrayList<>());
+		super("getexplorermap", Messages.CMD_GETEXPLORERMAP_DESC);
 	}
 
 	@Override
-	public boolean executePluginCommand(CommandSender commandsender, ICommandListener icommandlistener, String s, String[] astring) throws CommandException {
-		if (!(icommandlistener instanceof EntityPlayer)) {
-			throw new NonPlayerException();
+	public LiteralArgumentBuilder<CommandListenerWrapper> getCommandNodeForRegistration(CommandDispatcher<CommandListenerWrapper> dispatcher) {
+		return newRootNode().requires(requireCheatsEnabled()).executes(context -> execute(context.getSource(), null)).then(RequiredArgumentBuilder.<CommandListenerWrapper, String>argument("type", StringArgumentType.word()).suggests((context, builder) -> builder.suggest("Mansion").suggest("Monument").buildFuture()).executes(context -> execute(context.getSource(), StringArgumentType.getString(context, "type"))));
+	}
+
+	private static int execute(CommandListenerWrapper nmsSender, String feature) throws CommandException, CommandSyntaxException {
+		EntityPlayer targetPlayer = nmsSender.h();
+
+		if (feature == null) {
+			int i = RANDOM.nextInt(2);
+			feature = new String[]{"Mansion", "Monument"}[i];
 		}
 
-		int i = RANDOM.nextInt(2);
-		String s1 = new String[]{"Mansion", "Monument"}[i];
-		Type mapicon$type = new Type[]{MANSION, MONUMENT}[i];
-		World world = icommandlistener.getWorld();
-		BlockPosition blockposition = world.a(s1, icommandlistener.getChunkCoordinates(), true);
+		MapIcon.Type structureType;
 
-		if (blockposition != null) {
-			ItemStack itemstack = ItemWorldMap.a(world, blockposition.getX(), blockposition.getZ(), (byte) 2, true, true);
-			ItemWorldMap.a(world, itemstack);
-			WorldMap.a(itemstack, blockposition, "+", mapicon$type);
-			itemstack.f("filled_map." + s1.toLowerCase(Locale.ROOT));
-			Bukkit.dispatchCommand(commandsender, "give " + commandsender.getName() + " minecraft:filled_map 1 " + itemstack.getData() + ' ' + itemstack.getTag());
+		switch (feature) {
+			case "Mansion":
+				structureType = MapIcon.Type.MANSION;
+				break;
+			case "Monument":
+				structureType = MapIcon.Type.MONUMENT;
+				break;
+			default:
+				throw Messages.UNSUPPORTED_STRUCTURE_TYPE_ERROR.create();
 		}
 
-		return true;
+		if (!targetPlayer.isCreative()) {
+			throw Messages.NOT_IN_CREATIVE_ERROR.create();
+		}
+
+		World world = nmsSender.getWorld();
+		BlockPosition structurePosition = world.a(feature, new BlockPosition(nmsSender.getPosition()), 100, true);
+
+		if (structurePosition != null) {
+			ItemStack resultItem = ItemWorldMap.createFilledMapView(world, structurePosition.getX(), structurePosition.getZ(), (byte) 2, true, true);
+			ItemWorldMap.applySepiaFilter(world, resultItem);
+			WorldMap.decorateMap(resultItem, structurePosition, "+", structureType);
+			ChatMessage itemName = new ChatMessage("filled_map." + feature.toLowerCase(Locale.ROOT));
+			resultItem.a(itemName);
+			EntityItem itemDrop = targetPlayer.drop(resultItem, false);
+
+			if (itemDrop != null) {
+				itemDrop.o();
+				itemDrop.setOwner(targetPlayer.getUniqueID());
+			}
+
+//			Bukkit.dispatchCommand(bukkitSender, "give " + bukkitSender.getName() + " minecraft:filled_map 1 " + resultItem.getData() + ' ' + resultItem.getTag());
+			nmsSender.sendMessage(new ChatMessage("Successfully created %s", itemName), true);
+			return Command.SINGLE_SUCCESS;
+		} else {
+			throw Messages.STRUCTURE_NOT_FOUND_ERROR.create();
+		}
 	}
 }

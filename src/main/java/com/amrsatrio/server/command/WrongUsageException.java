@@ -1,4 +1,4 @@
-package com.amrsatrio.server;
+package com.amrsatrio.server.command;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandException;

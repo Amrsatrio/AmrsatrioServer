@@ -1,5 +1,15 @@
-package com.amrsatrio.server;
+package com.amrsatrio.server.command;
 
+import com.amrsatrio.server.Messages;
+import com.amrsatrio.server.util.Utils;
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.server.v1_14_R1.ChatMessage;
+import net.minecraft.server.v1_14_R1.CommandListenerWrapper;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -7,114 +17,164 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-public class Texter {
-	@SuppressWarnings("deprecation")
-	public static boolean text(String text, Player pl, boolean vertical) {
-		Location pll = pl.getLocation();
+public class CommandBuildText extends AbstractBrigadierCommand {
+	private static final int TEXT_HEIGHT = 8;
+
+	public CommandBuildText() {
+		super("buildtext", "Make blocks forming a text.", Collections.singletonList("text"));
+	}
+
+	@Override
+	public LiteralArgumentBuilder<CommandListenerWrapper> getCommandNodeForRegistration(CommandDispatcher<CommandListenerWrapper> dispatcher) {
+		return newRootNode().requires(requireCheatsEnabled()).then(RequiredArgumentBuilder.<CommandListenerWrapper, String>argument("text", StringArgumentType.greedyString()).executes(context -> text(context.getSource(), StringArgumentType.getString(context, "text"), false)));
+	}
+
+	public static int text(CommandListenerWrapper listener, String text, boolean forceReplace) throws CommandSyntaxException {
+		Player pl = listener.h().getBukkitEntity();
+		Location playerLocation = pl.getLocation();
 		char[] chars = text.trim().toCharArray();
 		ArrayList<String> toSet = new ArrayList<>(8);
-		try {
-			for (int i = 0; i < 8; i++) {
-				StringBuilder sb = new StringBuilder();
-				for (char aChar : chars) {
-					sb.append(getTextFont(aChar)[i]);
-					sb.append(" ");
-				}
-				toSet.add(sb.toString());
+
+		for (int i = 0; i < TEXT_HEIGHT; i++) {
+			StringBuilder sb = new StringBuilder();
+			for (char aChar : chars) {
+				sb.append(getTextFont(aChar)[i]);
+				sb.append(" ");
 			}
-		} catch (IllegalArgumentException e) {
-			pl.sendMessage("Server> \u00a7c" + e.getMessage());
-			return true;
+			toSet.add(sb.toString());
 		}
-		int rpl = 0;
-		int rplna = 0;
-		int var24 = Utils.floor(pll.getYaw() * 4.0F / 360.0F + 0.5D) & 3;// swne
+
+		int replaced = 0, replacedNonAir = 0;
+		int direction = Utils.floor(playerLocation.getYaw() * 4.0F / 360.0F + 0.5D) & 3;// swne
 		ItemStack setMat = pl.getInventory().getItemInMainHand();
-		if (setMat == null || setMat.getTypeId() > 0xff) {
-			pl.sendMessage("Server> Hold the block in your main hand that you want to set as the material.");
-			return true;
+
+		if (setMat == null || !setMat.getType().isBlock()) {
+			throw Messages.NO_BLOCK_TO_SET_ERROR.create();
 		}
-		for (int i = 0; i < 8; i++) {
-			char[] ca = toSet.get(i).toCharArray();
-			for (int j = 0; j < ca.length; j++) {
-				Material set = ca[j] == 'x' ? setMat.getType() : Material.AIR;
-				byte setd = ca[j] == 'x' ? setMat.getData().getData() : 0;
-				Block curblock = null;
-				if (pll.getPitch() > 45) {
-					switch (var24) {
+
+		Map<Block, Material> modifyMap = new HashMap<>();
+		List<Location> nonAirBlocksNeedToBeRemoved = new ArrayList<>();
+
+		for (int i = 0; i < TEXT_HEIGHT; i++) {
+			char[] charArray = toSet.get(i).toCharArray();
+
+			for (int j = 0; j < charArray.length; j++) {
+				Location setLocation = new Location(playerLocation.getWorld(), 0, 0, 0);
+
+				if (playerLocation.getPitch() > 45) {
+					switch (direction) {
 						case 0:
 							// -x
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX() - 8 + i, pll.getBlockY() - 1 - j, pll.getBlockZ());
+							setXYZ(setLocation, playerLocation.getBlockX() - 8 + i, playerLocation.getBlockY() - 1 - j, playerLocation.getBlockZ());
 							break;
 						case 1:
 							// -z
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX(), pll.getBlockY() - 1 - j, pll.getBlockZ() - 8 + i);
+							setXYZ(setLocation, playerLocation.getBlockX(), playerLocation.getBlockY() - 1 - j, playerLocation.getBlockZ() - 8 + i);
 							break;
 						case 2:
 							// +x
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX() + 8 - i, pll.getBlockY() - 1 - j, pll.getBlockZ());
+							setXYZ(setLocation, playerLocation.getBlockX() + 8 - i, playerLocation.getBlockY() - 1 - j, playerLocation.getBlockZ());
 							break;
 						case 3:
 							// +z
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX(), pll.getBlockY() - 1 - j, pll.getBlockZ() + 8 - i);
+							setXYZ(setLocation, playerLocation.getBlockX(), playerLocation.getBlockY() - 1 - j, playerLocation.getBlockZ() + 8 - i);
 							break;
 					}
-				} else if (pll.getPitch() < -45) {
-					switch (var24) {
+				} else if (playerLocation.getPitch() < -45) {
+					switch (direction) {
 						case 0:
 							// +x
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX() + 8 - i, pll.getBlockY() + 1 + j, pll.getBlockZ());
+							setXYZ(setLocation, playerLocation.getBlockX() + 8 - i, playerLocation.getBlockY() + 1 + j, playerLocation.getBlockZ());
 							break;
 						case 1:
 							// +z
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX(), pll.getBlockY() + 1 + j, pll.getBlockZ() + 8 - i);
+							setXYZ(setLocation, playerLocation.getBlockX(), playerLocation.getBlockY() + 1 + j, playerLocation.getBlockZ() + 8 - i);
 							break;
 						case 2:
 							// -x
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX() - 8 + i, pll.getBlockY() + 1 + j, pll.getBlockZ());
+							setXYZ(setLocation, playerLocation.getBlockX() - 8 + i, playerLocation.getBlockY() + 1 + j, playerLocation.getBlockZ());
 							break;
 						case 3:
 							// -z
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX(), pll.getBlockY() + 1 + j, pll.getBlockZ() - 8 + i);
+							setXYZ(setLocation, playerLocation.getBlockX(), playerLocation.getBlockY() + 1 + j, playerLocation.getBlockZ() - 8 + i);
 							break;
 					}
 				} else {
-					switch (var24) {
+					switch (direction) {
 						case 0:
 							// -x
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX() - 1 - j, pll.getBlockY() + 8 - i, pll.getBlockZ());
+							setXYZ(setLocation, playerLocation.getBlockX() - 1 - j, playerLocation.getBlockY() + 8 - i, playerLocation.getBlockZ());
 							break;
 						case 1:
 							// -z
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX(), pll.getBlockY() + 8 - i, pll.getBlockZ() - 1 - j);
+							setXYZ(setLocation, playerLocation.getBlockX(), playerLocation.getBlockY() + 8 - i, playerLocation.getBlockZ() - 1 - j);
 							break;
 						case 2:
 							// +x
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX() + 1 + j, pll.getBlockY() + 8 - i, pll.getBlockZ());
+							setXYZ(setLocation, playerLocation.getBlockX() + 1 + j, playerLocation.getBlockY() + 8 - i, playerLocation.getBlockZ());
 							break;
 						case 3:
 							// +z
-							curblock = pl.getWorld().getBlockAt(pll.getBlockX(), pll.getBlockY() + 8 - i, pll.getBlockZ() + 1 + j);
+							setXYZ(setLocation, playerLocation.getBlockX(), playerLocation.getBlockY() + 8 - i, playerLocation.getBlockZ() + 1 + j);
 							break;
 					}
 				}
-				if (curblock.getType() != set || curblock.getData() != setd) {
-					rpl++;
+
+				Block blockAt = playerLocation.getWorld().getBlockAt(setLocation);
+
+				if (!forceReplace && blockAt.getType() != Material.AIR) {
+					nonAirBlocksNeedToBeRemoved.add(setLocation);
+					continue;
 				}
-				if (curblock.getType() != Material.AIR) {
-					rplna++;
-				}
-				curblock.setType(set);
-				curblock.setData(setd);
+
+				modifyMap.put(blockAt, charArray[j] == 'x' ? setMat.getType() : Material.AIR);
 			}
 		}
-		pl.sendMessage(String.format("Server> Created the text \"%s\" (%d character(s)) by changing %d blocks (%d non-air blocks).", new Object[]{text.trim(), chars.length, rpl, rplna}));
-		return true;
+
+		if (!nonAirBlocksNeedToBeRemoved.isEmpty()) {
+			throw Messages.BLOCKED_BY_BLOCK_ERROR.create(nonAirBlocksNeedToBeRemoved);
+//			return Command.SINGLE_SUCCESS;
+		}
+
+		for (Map.Entry<Block, Material> entry : modifyMap.entrySet()) {
+			Block curblock = entry.getKey();
+
+			if (curblock.getType() != entry.getValue()) {
+				replaced++;
+			}
+
+			if (curblock.getType() != Material.AIR) {
+				replacedNonAir++;
+			}
+
+			curblock.setType(entry.getValue());
+		}
+
+		ChatMessage successMsg;
+
+		if (forceReplace) {
+			successMsg = new ChatMessage("Created the text \"%s\" (%s character(s)) by replacing %s blocks (%s non-air).", text.trim(), chars.length, replaced, replacedNonAir);
+		} else {
+			successMsg = new ChatMessage("Created the text \"%s\" (%s character(s)) by replacing %s blocks.", text.trim(), chars.length, replaced);
+		}
+
+		listener.sendMessage(successMsg, true);
+		return Command.SINGLE_SUCCESS;
 	}
 
-	private static String[] getTextFont(char text) {
-		switch (text) {
+	private static void setXYZ(Location location, int x, int y, int z) {
+		location.setX(x);
+		location.setY(y);
+		location.setZ(z);
+	}
+
+	private static String[] getTextFont(char character) throws CommandSyntaxException {
+		switch (character) {
 			case ' ':
 				return new String[]{"   ", "   ", "   ", "   ", "   ", "   ", "   ", "   "};
 			case '!':
@@ -306,6 +366,7 @@ public class Texter {
 			case '~':
 				return new String[]{" xx  x", "x  xx ", "      ", "      ", "      ", "      ", "      ", "      "};
 		}
-		throw new IllegalArgumentException("The character " + text + " is not supported");
+
+		throw Messages.UNSUPPORTED_CHAR_ERROR.create(character);
 	}
 }

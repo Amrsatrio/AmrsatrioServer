@@ -1,33 +1,67 @@
-package com.amrsatrio.server;
+package com.amrsatrio.server.util;
 
+import com.amrsatrio.server.ServerPlugin;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import net.minecraft.server.v1_12_R1.*;
-import net.minecraft.server.v1_12_R1.ChatClickable.EnumClickAction;
-import net.minecraft.server.v1_12_R1.IChatBaseComponent.ChatSerializer;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.time.DateUtils;
-import org.apache.commons.lang3.time.DurationFormatUtils;
+import net.minecraft.server.v1_14_R1.BlockPosition;
+import net.minecraft.server.v1_14_R1.ChatClickable;
+import net.minecraft.server.v1_14_R1.ChatClickable.EnumClickAction;
+import net.minecraft.server.v1_14_R1.ChatComponentText;
+import net.minecraft.server.v1_14_R1.ChatHoverable;
+import net.minecraft.server.v1_14_R1.ChatMessage;
+import net.minecraft.server.v1_14_R1.ChatMessageType;
+import net.minecraft.server.v1_14_R1.ChatModifier;
+import net.minecraft.server.v1_14_R1.CommandListenerWrapper;
+import net.minecraft.server.v1_14_R1.DedicatedServer;
+import net.minecraft.server.v1_14_R1.EntityTippedArrow;
+import net.minecraft.server.v1_14_R1.EnumChatFormat;
+import net.minecraft.server.v1_14_R1.IChatBaseComponent;
+import net.minecraft.server.v1_14_R1.IChatBaseComponent.ChatSerializer;
+import net.minecraft.server.v1_14_R1.MinecraftServer;
+import net.minecraft.server.v1_14_R1.NBTCompressedStreamTools;
+import net.minecraft.server.v1_14_R1.NBTTagCompound;
+import net.minecraft.server.v1_14_R1.PacketPlayOutChat;
+import net.minecraft.server.v1_14_R1.PacketPlayOutPlayerListHeaderFooter;
+import net.minecraft.server.v1_14_R1.World;
+import net.minecraft.server.v1_14_R1.WorldServer;
+import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang.time.DurationFormatUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.command.*;
-import org.bukkit.craftbukkit.v1_12_R1.CraftServer;
-import org.bukkit.craftbukkit.v1_12_R1.command.CraftBlockCommandSender;
-import org.bukkit.craftbukkit.v1_12_R1.command.ProxiedNativeCommandSender;
-import org.bukkit.craftbukkit.v1_12_R1.entity.CraftMinecartCommand;
-import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer;
+import org.bukkit.command.BlockCommandSender;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.command.ProxiedCommandSender;
+import org.bukkit.command.RemoteConsoleCommandSender;
+import org.bukkit.craftbukkit.libs.org.apache.commons.io.FilenameUtils;
+import org.bukkit.craftbukkit.v1_14_R1.CraftServer;
+import org.bukkit.craftbukkit.v1_14_R1.command.CraftBlockCommandSender;
+import org.bukkit.craftbukkit.v1_14_R1.command.ProxiedNativeCommandSender;
+import org.bukkit.craftbukkit.v1_14_R1.entity.CraftMinecartCommand;
+import org.bukkit.craftbukkit.v1_14_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_14_R1.entity.CraftTippedArrow;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TippedArrow;
 import org.bukkit.entity.minecart.CommandMinecart;
-import org.bukkit.event.player.PlayerPreLoginEvent.Result;
+import org.bukkit.event.player.AsyncPlayerPreLoginEvent.Result;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.Plugin;
 
-import java.io.*;
-import java.lang.reflect.Field;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
@@ -36,15 +70,22 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-public enum Utils {
-	;
-
+public class Utils {
+	private static final Logger LOGGER = LogManager.getLogger();
+	public static final ChatComponentText UNKNOWN_COMPONENT = new ChatComponentText("(???)");
 	public static final long KB_IN_BYTES = 1024;
 	public static final long MB_IN_BYTES = KB_IN_BYTES * 1024;
 	public static final long GB_IN_BYTES = MB_IN_BYTES * 1024;
@@ -53,46 +94,54 @@ public enum Utils {
 	public static final int FLAG_SHORTER = 1;
 	public static final int FLAG_CALCULATE_ROUNDED = 1 << 1;
 	private static final int BUFFER = 32768;
+	public static final ChatHoverable CLICK_TO_TP_HOVER = new ChatHoverable(ChatHoverable.EnumHoverAction.SHOW_TEXT, new ChatMessage("chat.coordinates.tooltip"));
+	private static final Gson PRETTY_PRINTING_JSON = new GsonBuilder().setPrettyPrinting().create();
+	//	private static final String ENABLED_MSG = "\u2611";
+//	private static final String DISABLED_MSG = "\u2610";
+	private static final String ENABLED_MSG = "Enabled";
+	private static final String DISABLED_MSG = "Disabled";
 
-	public static void a(Player a, File b) {
+	private Utils() {
+	}
+
+	public static void displayFile(Player player, File file) {
 		String msgHead = "Preview";
-		a.sendMessage("\u00a76\u00a7l--- " + b.getName() + " ---");
+		player.sendMessage("\u00a76\u00a7l--- " + file.getName() + " ---");
 		try {
-			switch (FilenameUtils.getExtension(b.getName()).toUpperCase()) {
+			switch (FilenameUtils.getExtension(file.getName()).toUpperCase()) {
 				case "NBT":
 				case "DAT":
 				case "SCHEMATIC":
-					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read this file as NBT", msgHead);
+					ServerPlugin.msg(player, ChatColor.ITALIC + "Attempting to read this file as NBT", msgHead);
 					try {
-						FileInputStream nbtfis = new FileInputStream(b);
+						FileInputStream nbtfis = new FileInputStream(file);
 						NBTTagCompound root = NBTCompressedStreamTools.a(nbtfis);
 						nbtfis.close();
-						a.sendMessage(root.toString());
+						player.sendMessage(root.toString());
 					} catch (ZipException e) {
-						ServerPlugin.msg(a, ChatColor.ITALIC + "Not an NBT file!", msgHead);
+						ServerPlugin.msg(player, ChatColor.ITALIC + "Not an NBT file!", msgHead);
 					}
 					break;
 				case "JSON":
 				case "MCMETA":
-					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read this file as JSON", msgHead);
+					ServerPlugin.msg(player, ChatColor.ITALIC + "Attempting to read this file as JSON", msgHead);
 					JsonParser parser = new JsonParser();
-					FileReader fr = new FileReader(b);
+					FileReader fr = new FileReader(file);
 					JsonElement json = parser.parse(fr);
 					fr.close();
-					Gson gson = new GsonBuilder().setPrettyPrinting().create();
-					a.sendMessage(gson.toJson(json));
+					player.sendMessage(PRETTY_PRINTING_JSON.toJson(json));
 					break;
 				case "CONF":
 				case "PROPERTIES":
-					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read properties file and showing in inventory", msgHead);
-					new PropertiesEditor(a, b).show();
+					ServerPlugin.msg(player, ChatColor.ITALIC + "Attempting to read properties file and showing in inventory", msgHead);
+					new PropertiesEditor(player, file).show();
 					break;
 				default:
-					ServerPlugin.msg(a, ChatColor.ITALIC + "Attempting to read this file as text", msgHead);
-					try (BufferedReader br = new BufferedReader(new FileReader(b))) {
+					ServerPlugin.msg(player, ChatColor.ITALIC + "Attempting to read this file as text", msgHead);
+					try (BufferedReader br = new BufferedReader(new FileReader(file))) {
 						String cl;
 						while ((cl = br.readLine()) != null) {
-							a.sendMessage(cl);
+							player.sendMessage(cl);
 						}
 						br.close();
 					}
@@ -103,12 +152,12 @@ public enum Utils {
 		}
 	}
 
-	public static void actionBarWithoutReflection(Player player, IChatBaseComponent ichatbasecomponent) {
+	public static void actionBar(Player player, IChatBaseComponent ichatbasecomponent) {
 		((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutChat(ichatbasecomponent, ChatMessageType.GAME_INFO));
 	}
 
-	public static void actionBarWithoutReflection(Player player, String s) {
-		actionBarWithoutReflection(player, new ChatComponentText(s));
+	public static void actionBar(Player player, String s) {
+		actionBar(player, new ChatComponentText(s));
 	}
 
 	public static IChatBaseComponent suggestBoxJson(String a, String b, boolean c) {
@@ -139,7 +188,7 @@ public enum Utils {
 	}
 
 	public static void broke(Throwable throwable, String s) {
-		boolean flag = ServerPlugin.getInstance().verbose;
+		boolean flag = ServerPlugin.getInstance().bcPluginErrors.get();
 		String s1 = "§4§l§ka§4§l>>§r    §c§lOh nose! I've caught an error" + s + "!§r    §4§l<<§ka";
 
 		if (flag) {
@@ -334,7 +383,11 @@ public enum Utils {
 //	}
 
 	public static String disabledOrEnabled(boolean flag) {
-		return flag ? "\u00a7aEnabled" : "\u00a7cDisabled";
+		return flag ? ChatColor.GREEN + ENABLED_MSG : ChatColor.RED + DISABLED_MSG;
+	}
+
+	public static IChatBaseComponent disabledOrEnabledComponent(boolean enabled) {
+		return new ChatComponentText(enabled ? ENABLED_MSG : DISABLED_MSG).a(enabled ? EnumChatFormat.GREEN : EnumChatFormat.RED);
 	}
 
 	public static File getTimestampedPNGFileForDirectory(File gameDirectory) {
@@ -342,7 +395,7 @@ public enum Utils {
 		int i = 1;
 
 		while (true) {
-			File file1 = new File(gameDirectory, "Minecraft-" + s + (i == 1 ? "" : "_" + i) + ".zip");
+			File file1 = new File(gameDirectory, "MinecraftBackup-" + s + (i == 1 ? "" : "_" + i) + ".zip");
 
 			if (!file1.exists()) {
 				return file1;
@@ -353,7 +406,7 @@ public enum Utils {
 	}
 
 	public static void updateHF(Player a) {
-		tabHeaderFooter(a, "\u00a7aWelcome to\n\u00a7l" + Bukkit.getServerName(), "\u00a76You're currently in\n\u00a7l" + a.getWorld().getName());
+		sendPlayerListText(a, "\u00a7aWelcome to\n\u00a7l" + Bukkit.getName(), "\u00a76You're currently in\n\u00a7l" + a.getWorld().getName());
 	}
 
 //	public static String plural(int a) {
@@ -446,27 +499,27 @@ public enum Utils {
 		return new File(curdir + separator + file);
 	}
 
-	@Deprecated
-	public static Object getHandle(Object obj) {
-		try {
-			Method method = obj.getClass().getDeclaredMethod("getHandle");
-			method.setAccessible(true);
-			return method.invoke(obj);
-		} catch (Throwable e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
+//	@Deprecated
+//	public static Object getHandle(Object obj) {
+//		try {
+//			Method method = obj.getClass().getDeclaredMethod("getHandle");
+//			method.setAccessible(true);
+//			return method.invoke(obj);
+//		} catch (Throwable e) {
+//			e.printStackTrace();
+//			return null;
+//		}
+//	}
 
-	public static String getVersion() {
-		String name = Bukkit.getServer().getClass().getPackage().getName();
-		return name.substring(name.lastIndexOf('.') + 1) + ".";
-	}
-
-	public static String getVersion2() {
-		String name = Bukkit.getServer().getClass().getPackage().getName();
-		return name.substring(name.lastIndexOf('.') + 1);
-	}
+//	public static String getVersion() {
+//		String name = Bukkit.getServer().getClass().getPackage().getName();
+//		return name.substring(name.lastIndexOf('.') + 1) + ".";
+//	}
+//
+//	public static String getVersion2() {
+//		String name = Bukkit.getServer().getClass().getPackage().getName();
+//		return name.substring(name.lastIndexOf('.') + 1);
+//	}
 
 	public static String joinNiceString(Object[] a) {
 		return joinNiceString(a, "and");
@@ -492,18 +545,6 @@ public enum Utils {
 		return stringbuilder.toString();
 	}
 
-//	public static String joinNiceStringFromCollection(Collection<String> strings) {
-//		return joinNiceString(strings.toArray(new String[strings.size()]));
-//	}
-
-	public static void jsonMsg(Player a, String b) {
-		jsonMsg(a, b, true);
-	}
-
-	public static void jsonMsg(Player a, String b, boolean c) {
-		((CraftPlayer) a).getHandle().sendMessage(ChatSerializer.a(c ? String.format("[{\"text\":\"%s\"},%s]", String.format(ServerPlugin.SH_WITH_COLORS, "Server"), b) : b));
-	}
-
 	public static String readUrl(String urlString) throws IOException {
 		URL url = new URL(urlString);
 
@@ -525,29 +566,29 @@ public enum Utils {
 		byte[] abyte = messagedigest.digest(input.getBytes());
 		StringBuilder stringbuilder = new StringBuilder();
 
-		for (int i = 0; i < abyte.length; i++) {
-			stringbuilder.append(Integer.toString((abyte[i] & 0xff) + 0x100, 16).substring(1));
+		for (byte anAbyte : abyte) {
+			stringbuilder.append(Integer.toString((anAbyte & 0xff) + 0x100, 16).substring(1));
 		}
 
 		return stringbuilder.toString();
 	}
 
-	public static void tabHeaderFooter(Player player, String s, String s1) {
-		try {
-			PacketPlayOutPlayerListHeaderFooter packetplayoutplayerlistheaderfooter = new PacketPlayOutPlayerListHeaderFooter();
-			Field field = packetplayoutplayerlistheaderfooter.getClass().getDeclaredField("a");
-			field.setAccessible(true);
-			field.set(packetplayoutplayerlistheaderfooter, new ChatComponentText(s));
-			field = packetplayoutplayerlistheaderfooter.getClass().getDeclaredField("b");
-			field.setAccessible(true);
-			field.set(packetplayoutplayerlistheaderfooter, new ChatComponentText(s1));
-			((CraftPlayer) player).getHandle().playerConnection.sendPacket(packetplayoutplayerlistheaderfooter);
-		} catch (Throwable e) {
-			ServerPlugin.LOGGER.warn("Unable to send player list header footer to " + player.getName(), e);
-		}
+	public static void sendPlayerListText(Player player, String headerText, String footerText) {
+		((CraftPlayer) player).getHandle().playerConnection.sendPacket(headerFooterPacket(headerText, footerText));
 	}
 
-//	public static void textSlide(final Player player, String s, final int i, int j, BukkitScheduler bukkitscheduler, JavaPlugin javaplugin) {
+	public static PacketPlayOutPlayerListHeaderFooter headerFooterPacket(String headerText, String footerText) {
+		return headerFooterPacket(new ChatComponentText(headerText), new ChatComponentText(footerText));
+	}
+
+	public static PacketPlayOutPlayerListHeaderFooter headerFooterPacket(IChatBaseComponent headerText, IChatBaseComponent footerText) {
+		PacketPlayOutPlayerListHeaderFooter packet = new PacketPlayOutPlayerListHeaderFooter();
+		packet.header = headerText;
+		packet.footer = footerText;
+		return packet;
+	}
+
+//	public static void textSlide(final Player player, String s, final int i, int j, BukkitScheduler scheduler, Plugin plugin) {
 //		// String text, int textLengthInFrame, int speedTicks
 //		s = ChatColor.stripColor(s);
 //		String s1 = "";
@@ -566,46 +607,37 @@ public enum Utils {
 //
 //		for (int k = 0; k + k <= v1.length(); k++) {
 //			final int i1 = k;
-//			bukkitscheduler.scheduleSyncDelayedTask(javaplugin, new Runnable() {
+//			scheduler.scheduleSyncDelayedTask(plugin, new Runnable() {
 //				@Override
 //				public void run() {
-//					actionBarWithoutReflection(player, v1.substring(i1, i + i1));
+//					actionBar(player, v1.substring(i1, i + i1));
 //				}
 //			}, j * k);
 //		}
 //	}
 
-	@SuppressWarnings("deprecation")
-	// copied from VanillaCommandWrapper.getListener(CommandSender)
-	public static ICommandListener getListener(CommandSender sender) {
+	/**
+	 * Copied from {@link org.bukkit.craftbukkit.v1_14_R1.command.VanillaCommandWrapper#getListener(CommandSender)}
+	 */
+	public static CommandListenerWrapper getListener(CommandSender sender) {
 		if (sender instanceof Player) {
-			return ((CraftPlayer) sender).getHandle();
-		}
-
-		if (sender instanceof BlockCommandSender) {
-			return ((CraftBlockCommandSender) sender).getTileEntity();
-		}
-
-		if (sender instanceof CommandMinecart) {
-			return ((CraftMinecartCommand) sender).getHandle().getCommandBlock();
-		}
-
-		if (sender instanceof RemoteConsoleCommandSender) {
-			return ((DedicatedServer) MinecraftServer.getServer()).remoteControlCommandListener;
-		}
-
-		if (sender instanceof ConsoleCommandSender) {
-			return ((CraftServer) sender.getServer()).getServer();
-		}
-
-		if (sender instanceof ProxiedCommandSender) {
+			return ((CraftPlayer) sender).getHandle().getCommandListener();
+		} else if (sender instanceof BlockCommandSender) {
+			return ((CraftBlockCommandSender) sender).getWrapper();
+		} else if (sender instanceof CommandMinecart) {
+			return ((CraftMinecartCommand) sender).getHandle().getCommandBlock().getWrapper();
+		} else if (sender instanceof RemoteConsoleCommandSender) {
+			return ((DedicatedServer) MinecraftServer.getServer()).remoteControlCommandListener.f();
+		} else if (sender instanceof ConsoleCommandSender) {
+			return ((CraftServer) sender.getServer()).getServer().getServerCommandListener();
+		} else if (sender instanceof ProxiedCommandSender) {
 			return ((ProxiedNativeCommandSender) sender).getHandle();
+		} else {
+			throw new IllegalArgumentException("Cannot make " + sender + " a vanilla command listener");
 		}
-
-		throw new IllegalArgumentException("Cannot make " + sender + " a vanilla command listener");
 	}
 
-	public static void tripleBeepSamePitch(CommandSender commandsender, JavaPlugin javaplugin) {
+	public static void tripleBeepSamePitch(CommandSender commandsender, Plugin plugin) {
 		if (!(commandsender instanceof Player)) {
 			return;
 		}
@@ -613,8 +645,8 @@ public enum Utils {
 		final Player asPlayer = (Player) commandsender;
 		Runnable sound = () -> asPlayer.playSound(asPlayer.getLocation(), "minecraft:block.note.pling", 3.0F, 0.7F);
 		sound.run();
-		Bukkit.getScheduler().scheduleSyncDelayedTask(javaplugin, sound, 4L);
-		Bukkit.getScheduler().scheduleSyncDelayedTask(javaplugin, sound, 8L);
+		Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, sound, 4L);
+		Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, sound, 8L);
 	}
 
 	public static void extractZip(File zipFile, File destDir) throws IOException {
@@ -658,10 +690,10 @@ public enum Utils {
 	// http://stackoverflow.com/questions/1399126/java-util-zip-recreating-directory-structure
 	public static void zip(CommandSender a, File srcFile, File destination) throws IOException {
 		if (!FilenameUtils.getExtension(destination.getName()).equals("zip")) {
-			throw new IllegalArgumentException("Argument file is not a file with a .ZIP extension! The file name is " + destination.getName());
+			throw new IOException("Argument file is not a file with a .ZIP extension! The file name is " + destination.getName());
 		}
 		if (isInSubDirectory(srcFile, destination)) {
-			throw new IllegalArgumentException("Destination is subfolder of source");
+			throw new IOException("Destination is subfolder of source");
 		}
 		URI base = srcFile.toURI();
 		Deque<File> queue = new LinkedList<>();
@@ -678,10 +710,10 @@ public enum Utils {
 					if (kid.isDirectory()) {
 						queue.push(kid);
 						name = name.endsWith("/") ? name : name + "/";
-						a.sendMessage("Adding folder: " + name);
+						LOGGER.info("Adding folder: " + name);
 						zout.putNextEntry(new ZipEntry(name));
 					} else {
-						a.sendMessage("Adding file: " + name);
+						LOGGER.info("Adding file: " + name);
 						zout.putNextEntry(new ZipEntry(name));
 						copy(kid, zout);
 						zout.closeEntry();
@@ -768,43 +800,65 @@ public enum Utils {
 		return DateUtils.truncate(new Date(date), Calendar.DATE).getTime();
 	}
 
-	public static IChatBaseComponent plsRenameMe(String s, IChatBaseComponent ichatbasecomponent) {
-		return new ChatComponentText(s + ": ").setChatModifier(new ChatModifier().setColor(EnumChatFormat.GOLD)).addSibling(new ChatComponentText("").setChatModifier(new ChatModifier().setColor(EnumChatFormat.WHITE)).addSibling(ichatbasecomponent));
+	public static IChatBaseComponent ddComponent(String title, IChatBaseComponent description) {
+		IChatBaseComponent root = new ChatComponentText("");
+		root.addSibling(new ChatComponentText(title + ": ").a(EnumChatFormat.GRAY));
+
+		if (description != null) {
+			root.addSibling(description);
+		}
+
+		return root;
 	}
 
-	public static net.minecraft.server.v1_12_R1.ItemStack getTippedArrowItem(TippedArrow tippedarrow) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+	public static net.minecraft.server.v1_14_R1.ItemStack getTippedArrowItem(CraftTippedArrow tippedarrow) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 		// TODO This is NMS reflection
-		Object object = getHandle(tippedarrow);
-		Method method = object.getClass().getDeclaredMethod("j");
+		EntityTippedArrow nms = tippedarrow.getHandle();
+		Method method = EntityTippedArrow.class.getDeclaredMethod("getItemStack");
 		method.setAccessible(true);
-		return (net.minecraft.server.v1_12_R1.ItemStack) method.invoke(object);
+		return (net.minecraft.server.v1_14_R1.ItemStack) method.invoke(nms);
 	}
 
-	public static Collection<MinecraftKey> getAvailableLootTables(CommandSender commandsender) {
-		List<MinecraftKey> list = new ArrayList<>();
-		list.addAll(LootTables.a());
-
-		if (!(commandsender instanceof Player)) {
-			return list;
+	public static IChatBaseComponent worldToTextComponent(World nmsWorld) {
+		if (nmsWorld == null) {
+			return UNKNOWN_COMPONENT;
 		}
 
-		File file = new File(new File(((Player) commandsender).getWorld().getWorldFolder(), "data"), "loot_tables");
+		return worldToTextComponent(nmsWorld.getWorldData().getName(), ((WorldServer) nmsWorld).getDataManager().getDirectory());
+	}
 
-		if (!file.exists() || file.isFile()) {
-			return list;
+	public static IChatBaseComponent worldToTextComponent(org.bukkit.World bkWorld) {
+		if (bkWorld == null) {
+			return UNKNOWN_COMPONENT;
 		}
 
-		for (File file1 : file.listFiles()) {
-			if (file1.isDirectory()) {
-				for (File file2 : file1.listFiles()) {
-					if (file2.isFile() && file2.getName().endsWith(".json")) {
-						list.add(new MinecraftKey(file1.getName(), file2.getName().substring(0, file2.getName().length() - ".json".length())));
-					}
-				}
-			}
+		return worldToTextComponent(bkWorld.getName(), bkWorld.getWorldFolder());
+	}
+
+	public static IChatBaseComponent worldToTextComponent(String worldName, File worldDir) {
+		IChatBaseComponent returned = new ChatComponentText(worldName);
+		returned.getChatModifier().setChatHoverable(new ChatHoverable(ChatHoverable.EnumHoverAction.SHOW_TEXT, new ChatComponentText("Folder name: " + worldDir.getName())));
+		return returned;
+	}
+
+	public static IChatBaseComponent blockPositionToComponent(BlockPosition position, boolean omitY) {
+		ChatComponentText component = position == null ? UNKNOWN_COMPONENT : new ChatComponentText("[" + position.getX() + (omitY ? "" : ", " + position.getY()) + ", " + position.getZ() + "]");
+
+		if (position != null) {
+			component.getChatModifier().setColor(EnumChatFormat.GREEN).setChatHoverable(CLICK_TO_TP_HOVER).setChatClickable(new ChatClickable(EnumClickAction.SUGGEST_COMMAND, String.format("/tp %s %s %s", position.getX() + 0.5D, omitY ? "~" : position.getY() + 0.5D, position.getZ() + 0.5D)));
 		}
 
-		return list;
+		return component;
+	}
+
+	public static void checkNullity(Object toCheck, String descriptionToAdd, List<String> listOfNullities) {
+		if (toCheck == null) {
+			listOfNullities.add(descriptionToAdd);
+		}
+	}
+
+	public static IChatBaseComponent title(IChatBaseComponent text) {
+		return new ChatMessage("\n--- %s ---", text.a(EnumChatFormat.GREEN)).a(EnumChatFormat.DARK_GREEN);
 	}
 
 	private static class BytesResult {

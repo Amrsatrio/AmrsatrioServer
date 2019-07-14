@@ -1,9 +1,10 @@
 package com.amrsatrio.server.command;
 
-import net.minecraft.server.v1_12_R1.CommandException;
+import net.minecraft.server.v1_14_R1.ChatMessage;
+import net.minecraft.server.v1_14_R1.CommandException;
 
 public class NonPlayerException extends CommandException {
 	public NonPlayerException() {
-		super("You must be a player in order to execute this command");
+		super(new ChatMessage("permissions.requires.player"));
 	}
 }

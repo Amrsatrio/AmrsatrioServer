@@ -8,16 +8,21 @@ import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 
 public abstract class DrawableMapRenderer extends MapRenderer {
-	//		private BufferedImage image = new BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB);
+	//private BufferedImage image = new BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB);
 	private MapView mapView;
 	private MapCanvas mapCanvas;
 	private MapFont font;
+	private boolean clip;
+	private int clipL;
+	private int clipT;
+	private int clipR;
+	private int clipB;
 
 	@Override
 	public void render(MapView mapview, MapCanvas mapcanvas, Player player) {
 		mapView = mapview;
 		mapCanvas = mapcanvas;
-		rect(0, 0, 128, 128, false);
+		fill(0, 0, 128, 128, false);
 		draw(mapView, mapCanvas, player);
 		//Graphics graphics = image.getGraphics();
 		//graphics.clearRect(0, 0, image.getWidth(), image.getHeight());
@@ -30,13 +35,12 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 		//mapcanvas.setPixel(0, 0, (byte) 0);
 	}
 
-	protected abstract void draw(MapView mapview, MapCanvas mapcanvas, Player player); // {
+	protected abstract void draw(MapView mapview, MapCanvas mapcanvas, Player player);
 
-	protected void rect(int i, int i1, int i2, int j, boolean black) {
-		byte color = black ? 119 : MapPalette.TRANSPARENT;
-		for (int j2 = 0; j2 < i2; ++j2) {
-			for (int k = 0; k < j; ++k) {
-				mapCanvas.setPixel(i + j2, i1 + k, color);//TODO
+	protected void fill(int x, int y, int w, int h, boolean black) {
+		for (int oX = 0; oX < w; ++oX) {
+			for (int oY = 0; oY < h; ++oY) {
+				setPixel(x + oX, y + oY, black);
 			}
 		}
 	}
@@ -55,7 +59,6 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 
 	protected void str(int x, int y, String text, boolean black) {
 		int xStart = x;
-		byte color = black ? 119 : MapPalette.TRANSPARENT;
 
 		for (int i = 0; i < text.length(); ++i) {
 			char ch = text.charAt(i);
@@ -63,25 +66,25 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 				x = xStart;
 				y += font.getHeight() + 1;
 			} else {
-//						if (ch == 167) {
-//							int sprite = text.indexOf(59, i);
-//							if (sprite >= 0) {
-//								try {
-//									color = Byte.parseByte(text.substring(i + 1, sprite));
-//									i = sprite;
-//									continue;
-//								} catch (NumberFormatException var12) {
-//									;
-//								}
-//							}
+//				if (ch == 167) {
+//					int sprite = text.indexOf(59, i);
+//					if (sprite >= 0) {
+//						try {
+//							color = Byte.parseByte(text.substring(i + 1, sprite));
+//							i = sprite;
+//							continue;
+//						} catch (NumberFormatException var12) {
+//							;
 //						}
+//					}
+//				}
 
 				CharacterSprite var13 = font.getChar(text.charAt(i));
 
 				for (int r = 0; r < font.getHeight(); ++r) {
 					for (int c = 0; c < var13.getWidth(); ++c) {
 						if (var13.get(r, c)) {
-							mapCanvas.setPixel(x + c, y + r, color);
+							setPixel(x + c, y + r, black);
 						}
 					}
 				}
@@ -89,6 +92,23 @@ public abstract class DrawableMapRenderer extends MapRenderer {
 				x += var13.getWidth() + 1;
 			}
 		}
+	}
+
+	public void setPixel(int x, int y, boolean black) {
+		if (!clip || x >= clipL && x < clipR && y >= clipT && y < clipB) {
+			mapCanvas.setPixel(x, y, black ? 119 : MapPalette.TRANSPARENT);
+		}
+	}
+
+	public void setClip(boolean clip) {
+		this.clip = clip;
+	}
+
+	public void clipRect(int l, int t, int r, int b) {
+		clipL = l;
+		clipT = t;
+		clipR = r;
+		clipB = b;
 	}
 
 //	public List<String> listFormattedStringToWidth(String str, int wrapWidth) {

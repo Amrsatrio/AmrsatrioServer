@@ -1,18 +1,17 @@
 package com.amrsatrio.server.command;
 
 import com.amrsatrio.server.ServerPlugin;
-import net.minecraft.server.v1_12_R1.EntityItem;
-import net.minecraft.server.v1_12_R1.EntityPlayer;
+import net.minecraft.server.v1_14_R1.EntityItem;
+import net.minecraft.server.v1_14_R1.EntityPlayer;
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
-import org.bukkit.Material;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.banner.PatternType;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer;
-import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftItemStack;
+import org.bukkit.craftbukkit.v1_14_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_14_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
@@ -45,7 +44,7 @@ public class CommandGetBanner implements CommandExecutor {
 		private Player pl;
 		private boolean color = true;
 		private boolean first = true;
-		private ItemStack banner = new ItemStack(Material.BANNER);
+		private ItemStack banner;// = new ItemStack(Material.BANNER);
 		private PatternType toAddPattern;
 
 		public GetBannerGui(Player a) {
@@ -65,7 +64,7 @@ public class CommandGetBanner implements CommandExecutor {
 			switching = false;
 		}
 
-		public void handle(InventoryClickEvent a) throws Exception {
+		public void handle(InventoryClickEvent a) {
 			if (a.getCurrentItem() == null || a.getCurrentItem().getItemMeta() == null) {
 				return;
 			}
@@ -91,8 +90,8 @@ public class CommandGetBanner implements CommandExecutor {
 					EntityItem entityitem = entityplayer.drop(CraftItemStack.asNMSCopy(banner), false);
 
 					if (entityitem != null) {
-						entityitem.r();
-						entityitem.d(pl.getName());
+						entityitem.o();
+						entityitem.setOwner(pl.getUniqueId());
 					}
 
 					return;
@@ -112,11 +111,11 @@ public class CommandGetBanner implements CommandExecutor {
 				int y = 1;
 
 				for (DyeColor i : DyeColor.values()) {
-					ItemStack is = new ItemStack(Material.INK_SACK, 1, (short) 0, i.getDyeData());
-					ItemMeta im = is.getItemMeta();
-					im.setDisplayName(i.toString());
-					is.setItemMeta(im);
-					cont.put(y * 9 + x, is);
+//					ItemStack is = new ItemStack(Material.INK_SACK, 1, (short) 0, i.getDyeData());
+//					ItemMeta im = is.getItemMeta();
+//					im.setDisplayName(i.toString());
+//					is.setItemMeta(im);
+//					cont.put(y * 9 + x, is);
 					++x;
 					if (x == 8) {
 						x = 1;
@@ -132,13 +131,13 @@ public class CommandGetBanner implements CommandExecutor {
 				int x2 = 0;
 
 				for (PatternType i : PatternType.values()) {
-					ItemStack ly = new ItemStack(Material.BANNER);
-					BannerMeta bm = (BannerMeta) ly.getItemMeta();
-					bm.setBaseColor(DyeColor.WHITE);
-					bm.addPattern(new Pattern(DyeColor.BLACK, i));
-					bm.setDisplayName("\u00a7r" + i);
-					ly.setItemMeta(bm);
-					cont.put(9 + x2, ly);
+//					ItemStack ly = new ItemStack(Material.BANNER);
+//					BannerMeta bm = (BannerMeta) ly.getItemMeta();
+//					bm.setBaseColor(DyeColor.WHITE);
+//					bm.addPattern(new Pattern(DyeColor.BLACK, i));
+//					bm.setDisplayName("\u00a7r" + i);
+//					ly.setItemMeta(bm);
+//					cont.put(9 + x2, ly);
 					++x2;
 				}
 			}

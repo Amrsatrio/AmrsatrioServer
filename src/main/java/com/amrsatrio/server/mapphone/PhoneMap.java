@@ -1,23 +1,38 @@
 package com.amrsatrio.server.mapphone;
 
-import com.amrsatrio.server.PingList.PingEntry;
-import com.amrsatrio.server.RayTrace;
 import com.amrsatrio.server.ServerPlugin;
-import com.amrsatrio.server.Utils;
+import com.amrsatrio.server.util.PingList;
+import com.amrsatrio.server.util.PingList.PingEntry;
+import com.amrsatrio.server.util.RayTracer;
+import com.amrsatrio.server.util.Utils;
 import com.google.common.collect.Collections2;
-import net.minecraft.server.v1_12_R1.*;
+import net.minecraft.server.v1_14_R1.BlockPosition;
+import net.minecraft.server.v1_14_R1.IInventory;
+import net.minecraft.server.v1_14_R1.MinecraftKey;
+import net.minecraft.server.v1_14_R1.MovingObjectPositionBlock;
+import net.minecraft.server.v1_14_R1.NBTTagCompound;
+import net.minecraft.server.v1_14_R1.TileEntity;
+import net.minecraft.server.v1_14_R1.TileEntityCommand;
+import net.minecraft.server.v1_14_R1.TileEntityLootable;
+import net.minecraft.server.v1_14_R1.TileEntityTypes;
+import net.minecraft.server.v1_14_R1.WorldMap;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.craftbukkit.v1_12_R1.CraftWorld;
+import org.bukkit.craftbukkit.v1_14_R1.CraftWorld;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 
-import javax.annotation.Nullable;
-import java.util.*;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -27,7 +42,13 @@ public class PhoneMap extends DrawableMapRenderer {
 	private static Map<Player, PhoneSession> sessions = new HashMap<>();
 
 	public void init() {
-		WorldMap worldmap = new WorldMap("map_" + Short.MAX_VALUE);
+		WorldMap worldmap = ((CraftWorld) Bukkit.getWorlds().get(0)).getHandle().a("map_" + Short.MAX_VALUE);
+
+		if (worldmap == null) {
+			ServerPlugin.LOGGER.warn("Initialization of fake map failed (null returned)");
+			return;
+		}
+
 		NBTTagCompound nbttagcompound = new NBTTagCompound();
 		nbttagcompound.setByte("scale", (byte) 4);
 		nbttagcompound.setByte("dimension", (byte) 0);
@@ -37,7 +58,6 @@ public class PhoneMap extends DrawableMapRenderer {
 		nbttagcompound.setInt("yCenter", Integer.MAX_VALUE);
 		nbttagcompound.setByteArray("colors", new byte[0]);
 		worldmap.a(nbttagcompound);
-		((CraftWorld) Bukkit.getWorlds().get(0)).getHandle().a("map_" + Short.MAX_VALUE, worldmap);
 		MapView mapView = worldmap.mapView;
 
 		for (MapRenderer maprenderer : mapView.getRenderers()) {
@@ -50,11 +70,11 @@ public class PhoneMap extends DrawableMapRenderer {
 
 	@Override
 	public void draw(MapView mapview, MapCanvas mapcanvas, Player player) {
-		if (!sessions.containsKey(player)) {
-			sessions.put(player, new PhoneSession(player, this));
-		}
+		PhoneSession session;
 
-		PhoneSession session = sessions.get(player);
+		if ((session = sessions.get(player)) == null) {
+			sessions.put(player, session = new PhoneSession(player, this));
+		}
 
 		if (session.currentScreen == null) {
 			session.displayScreen(new MainScreen());
@@ -64,7 +84,7 @@ public class PhoneMap extends DrawableMapRenderer {
 			session.currentScreen.draw(mapcanvas, player);
 		} catch (Throwable e) {
 			player.getInventory().remove(new ItemStack(Material.MAP));
-			sessions.remove(player);
+			session.stopDrawing = true;
 			Utils.broke(e, " while rendering map");
 		}
 	}
@@ -111,16 +131,17 @@ public class PhoneMap extends DrawableMapRenderer {
 	}
 
 	private static class PhoneSession {
-		public Screen currentScreen;
+		public MapGuiScreen currentScreen;
 		public Player player;
 		public DrawableMapRenderer mapRenderer;
+		public boolean stopDrawing;
 
 		public PhoneSession(Player player, DrawableMapRenderer mapRenderer) {
 			this.player = player;
 			this.mapRenderer = mapRenderer;
 		}
 
-		public void displayScreen(Screen screen) {
+		public void displayScreen(MapGuiScreen screen) {
 			currentScreen = screen;
 
 			if (screen == null) {
@@ -137,11 +158,11 @@ public class PhoneMap extends DrawableMapRenderer {
 
 	private static class TestListScreen extends ListScreen {
 		private static final String SEL_GM = "Change gamemode";
-		private static final String CMD_BLK = "Cmd. block info";
+		private static final String CMD_BLK = "Block entity info";
 		private static final String PING_HIST = "Ping history";
 		private static final String TEST_INFO = "Test info";
 
-		public TestListScreen(Screen screen) {
+		public TestListScreen(MapGuiScreen screen) {
 			super(screen, "Actions", Arrays.asList(SEL_GM, CMD_BLK, PING_HIST, TEST_INFO));
 		}
 
@@ -153,7 +174,7 @@ public class PhoneMap extends DrawableMapRenderer {
 					break;
 
 				case CMD_BLK:
-					session.displayScreen(new CommandBlockInfo(this));
+					session.displayScreen(new CommandBlockInfoScreen(this));
 					break;
 
 				case PING_HIST:
@@ -168,7 +189,7 @@ public class PhoneMap extends DrawableMapRenderer {
 	}
 
 	private static class SelectGamemodeScreen extends ListScreen {
-		public SelectGamemodeScreen(Screen screen) {
+		public SelectGamemodeScreen(MapGuiScreen screen) {
 			super(screen, "Change gamemode", Arrays.asList("Survival", "Creative", "Adventure", "Spectator"));
 		}
 
@@ -187,57 +208,78 @@ public class PhoneMap extends DrawableMapRenderer {
 	}
 
 	private static class PingHistScreen extends ListScreen {
-		private static final Function<PingEntry, String> PENTRY_TO_STR = new Function<PingEntry, String>() {
-			@Nullable
-			@Override
-			public String apply(@Nullable PingEntry pingEntry) {
-				return pingEntry.getKey() + " (" + pingEntry.times.size() + ")";
-			}
-		};
+		private static final Function<PingEntry, String> PENTRY_TO_STR = pingEntry -> pingEntry.getKey() + " (" + pingEntry.times.size() + ")";
 
-		public PingHistScreen(Screen screen) {
-			super(screen, "Ping history", new ArrayList<>(Collections2.transform(ServerPlugin.getInstance().pingList.getValues(), PENTRY_TO_STR::apply)));
+		public PingHistScreen(MapGuiScreen screen) {
+			super(screen, "Ping history", null);
+			PingList pingList = ServerPlugin.getInstance().pingList;
+			setItems(pingList == null ? Collections.singletonList("Ping list is disabled") : new ArrayList<>(Collections2.transform(pingList.getValues(), PENTRY_TO_STR::apply)));
 		}
-
-
 	}
 
 //	private static class PlayerAddressesScreen extends TextScreen {
 //
 //	}
 
-	private static class CommandBlockInfo extends Screen {
-		private static final Function<net.minecraft.server.v1_12_R1.ItemStack, String> ITEM_STACK_STRING_FUNCTION = new Function<net.minecraft.server.v1_12_R1.ItemStack, String>() {
-			@Nullable
-			@Override
-			public String apply(@Nullable net.minecraft.server.v1_12_R1.ItemStack itemStack) {
-				return itemStack.isEmpty() ? "ERROR" : itemStack.getCount() + " * " + itemStack.getName();
-			}
-		};
+	private static class CommandBlockInfoScreen extends MapGuiScreen {
+		private static final Function<net.minecraft.server.v1_14_R1.ItemStack, String> ITEM_STACK_STRING_FUNCTION = itemStack -> itemStack.isEmpty() ? "ERROR" : itemStack.getCount() + " * " + itemStack.getName();
 
-		public CommandBlockInfo(Screen screen) {
+		public CommandBlockInfoScreen(MapGuiScreen screen) {
 			super(screen);
 		}
 
 		@Override
 		public void draw(MapCanvas mapcanvas, Player player) {
 			drawTop("Block entity info");
-			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
-			RayTrace raytrace = RayTrace.a(player, 5.0D);
-			BlockPosition blockposition = raytrace.f();
+			mapRenderer.setFont(NokiaFont.SMALL);
+			MovingObjectPositionBlock hitResult = RayTracer.rayTrace(player, 5.0D);
+			BlockPosition blockposition = hitResult.getBlockPosition();
 			StringBuilder s = new StringBuilder("Point at a block entity");
 
-			if (raytrace.a() && blockposition != null) {
+			if (hitResult.d() && blockposition != null) {
 				TileEntity tileentity = ((CraftWorld) player.getWorld()).getHandle().getTileEntity(blockposition);
 
 				if (tileentity instanceof TileEntityCommand) {
 					s = new StringBuilder(((TileEntityCommand) tileentity).getCommandBlock().getCommand());
-				} else if (tileentity instanceof TileEntityLootable) {
+				} else if (tileentity instanceof IInventory) {
 					s = new StringBuilder();
 
-					for (net.minecraft.server.v1_12_R1.ItemStack itemstack : ((TileEntityLootable) tileentity).getContents().stream().filter(itemStack -> !itemStack.isEmpty()).collect(Collectors.toList())) {
-						s.append(ITEM_STACK_STRING_FUNCTION.apply(itemstack)).append('\n');
+					labelLootable:
+					{
+						MinecraftKey ltKey;
+
+						if (tileentity instanceof TileEntityLootable && (ltKey = ((TileEntityLootable) tileentity).lootTable) != null) {
+							String ltSeed;
+
+							try {
+								Field n = TileEntityLootable.class.getDeclaredField("lootTableSeed");
+								n.setAccessible(true);
+								long theSeed = (long) n.get(tileentity);
+
+								if (theSeed == 0L) {
+									ltSeed = "random seed";
+								} else {
+									ltSeed = "seed \"" + theSeed + "\"";
+								}
+							} catch (ReflectiveOperationException e) {
+								ltSeed = "unknown seed (" + e + ")";
+							}
+
+							s.append("Using loot table \"" + ltKey + "\" with " + ltSeed + ". Contents not yet generated");
+							break labelLootable;
+						}
+
+						if (!((IInventory) tileentity).isNotEmpty()) {
+							s.append("Container is empty");
+							break labelLootable;
+						}
+
+						for (net.minecraft.server.v1_14_R1.ItemStack itemstack : ((IInventory) tileentity).getContents().stream().filter(itemStack -> !itemStack.isEmpty()).collect(Collectors.toList())) {
+							s.append(ITEM_STACK_STRING_FUNCTION.apply(itemstack)).append('\n');
+						}
 					}
+				} else if (tileentity != null) {
+					s = new StringBuilder("Block entity " + TileEntityTypes.a(tileentity.q()) + " is not supported yet");
 				}
 			}
 
@@ -251,13 +293,13 @@ public class PhoneMap extends DrawableMapRenderer {
 		}
 	}
 
-	private static class WarningScreen extends Screen {
+	private static class WarningScreen extends MapGuiScreen {
 		private static final int HOW_LONG = 60;
 		private final EnumInfoType type;
 		private final String text;
 		private int elapsed;
 
-		public WarningScreen(Screen screen, EnumInfoType type, String s) {
+		public WarningScreen(MapGuiScreen screen, EnumInfoType type, String s) {
 			super(screen);
 			this.type = type;
 			text = s;
@@ -283,7 +325,7 @@ public class PhoneMap extends DrawableMapRenderer {
 		}
 	}
 
-	private static class MainScreen extends Screen {
+	private static class MainScreen extends MapGuiScreen {
 		public MainScreen() {
 			super(null);
 		}
@@ -292,7 +334,7 @@ public class PhoneMap extends DrawableMapRenderer {
 		public void draw(MapCanvas mapcanvas, Player player) {
 			drawTop("Overview");
 			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
-			mapRenderer.str(1, 15, mapRenderer.wrapFormattedStringToWidth(SDF.format(System.currentTimeMillis()) + "\n" + ServerPlugin.NMS_VERSION + "\n" + player.getName() + "\n" + player.getWorld().getName(), width - 2), true);
+			mapRenderer.str(1, 15, mapRenderer.wrapFormattedStringToWidth(SDF.format(System.currentTimeMillis()) + "\n" + Bukkit.getBukkitVersion() + "\n" + player.getName() + "\n" + player.getWorld().getName() + "\n" + ServerPlugin.getInstance().cmdBlockList.size(), width - 2), true);
 			drawBottom();
 		}
 
@@ -318,18 +360,18 @@ public class PhoneMap extends DrawableMapRenderer {
 		}
 	}
 
-	private static class ListScreen extends Screen {
-		private final List<String> items;
+	private static class ListScreen extends MapGuiScreen {
+		private List<String> items;
 		private final String title;
 		private int cursor = 0;
 		private int drawStart = 0;
 		private int displayableItems;
 		private boolean doesScroll;
 
-		public ListScreen(Screen screen, String title, List<String> strings) {
-			super(screen);
+		public ListScreen(MapGuiScreen lastScreen, String title, List<String> items) {
+			super(lastScreen);
 			this.title = title;
-			items = strings;
+			this.items = items;
 		}
 
 		@Override
@@ -340,13 +382,13 @@ public class PhoneMap extends DrawableMapRenderer {
 			int scrollbarHeight = height - 26;
 			int scrollbarWidth = 4;
 			int thumbHeight = scrollbarHeight / items.size();
-			mapRenderer.rect(width - scrollbarWidth, theY, scrollbarWidth, scrollbarHeight, true);
-			mapRenderer.rect(width - scrollbarWidth, (int) (theY + (float) cursor / (float) items.size() * (float) scrollbarHeight), scrollbarWidth, thumbHeight, false);
+			mapRenderer.fill(width - scrollbarWidth, theY, scrollbarWidth, scrollbarHeight, true);
+			mapRenderer.fill(width - scrollbarWidth, (int) (theY + (float) cursor / (float) items.size() * (float) scrollbarHeight), scrollbarWidth, thumbHeight, false);
 			mapRenderer.setFont(NokiaFont.BOLD_SMALL);
 			int itemHeight = mapRenderer.getFont().getHeight() + 2;
 			displayableItems = scrollbarHeight / itemHeight;
 			doesScroll = items.size() > displayableItems;
-//			Utils.actionBarWithoutReflection(player, new ChatComponentText(String.format("Items %d, displayable %d, drawStart %d, cursor %d, bottom %s, top %s", items.size(), displayableItems, drawStart, cursor, isCursorAtBottomOfScreen(), isCursorAtTopOfScreen())));
+//			Utils.actionBar(player, new ChatComponentText(String.format("Items %d, displayable %d, drawStart %d, cursor %d, bottom %s, top %s", items.size(), displayableItems, drawStart, cursor, isCursorAtBottomOfScreen(), isCursorAtTopOfScreen())));
 
 			for (int i = 0; i < displayableItems; i++) {
 				drawEntry(theY, width - scrollbarWidth, itemHeight, (drawStart + i) % items.size());
@@ -358,19 +400,11 @@ public class PhoneMap extends DrawableMapRenderer {
 			}
 
 			drawBottom();
-			// LOGIC if displayableItems == 3 items.size() == 5
-			// drawStart 2 draw 2, 3, 4
-			// drawStart 3 draw 3, 4, 5
-			// drawStart 4 draw 4, 1, 2
-			// drawStart 5 INVALID!!!
-			// isCursorAtTheBottom == true ARE FOLLOWS
-			// drawStart 0 cursor 2
-			// drawStart 4 cursor 1
 		}
 
 		private void drawEntry(int y, int w, int h, int idx) {
 			if (cursor == idx) {
-				mapRenderer.rect(0, y, w, h, true);
+				mapRenderer.fill(0, y, w, h, true);
 			}
 
 			mapRenderer.str(1, y + 1, items.get(idx), cursor != idx);
@@ -414,11 +448,6 @@ public class PhoneMap extends DrawableMapRenderer {
 			}
 		}
 
-		private static int mod(int a, int b) {
-			int r = a % b;
-			return r < 0 ? r + b : r;
-		}
-
 		protected void onSelected(int i, String s) {
 		}
 
@@ -434,18 +463,27 @@ public class PhoneMap extends DrawableMapRenderer {
 		protected int getTopWidth() {
 			return width - mapRenderer.getFont().getWidth("" + (cursor + 1)) - 1;
 		}
+
+		public void setItems(List<String> items) {
+			this.items = items;
+		}
+
+		private static int mod(int a, int b) {
+			int r = a % b;
+			return r < 0 ? r + b : r;
+		}
 	}
 
-	private static class Screen {
+	private static class MapGuiScreen {
 		public int width;
 		public int height;
-		public Screen prevScreen;
+		public MapGuiScreen prevScreen;
 		protected DrawableMapRenderer mapRenderer;
 		protected PhoneSession session;
 		private boolean leftButtonOn;
 		private boolean rightButtonOn;
 
-		public Screen(Screen screen) {
+		public MapGuiScreen(MapGuiScreen screen) {
 			prevScreen = screen;
 		}
 
@@ -460,7 +498,7 @@ public class PhoneMap extends DrawableMapRenderer {
 		protected int drawTop(String s) {
 			mapRenderer.setFont(NokiaFont.SMALL);
 			int i = mapRenderer.getFont().getHeight() + 1;
-//			mapRenderer.rect(0, 0, getTopWidth(), i, true);
+//			mapRenderer.fill(0, 0, getTopWidth(), i, true);
 			mapRenderer.str((getTopWidth() - mapRenderer.getFont().getWidth(s)) / 2, 0, s, true);
 			return i;
 		}
@@ -491,7 +529,7 @@ public class PhoneMap extends DrawableMapRenderer {
 
 		private void ctrStrBox(int x, int y, int w, String text, boolean black) {
 			if (!black) {
-				mapRenderer.rect(x, y, w, 13, true);
+				mapRenderer.fill(x, y, w, 13, true);
 			}
 
 			mapRenderer.ctrStr(x + w / 2, y + 1, text, black);

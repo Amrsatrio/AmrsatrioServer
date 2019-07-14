@@ -1,141 +1,52 @@
-name: AmrsatrioServer
+name: ServerPlugin
 main: com.amrsatrio.server.ServerPlugin
-version: 1.0.677
+version: 1.0.0-1.14.3
 authors:
   - Amrsatrio
   - ammar18
 build-date: ${timestamp}
 commands:
-#  anon:
-#    description: Mask players with their IP address.
-#    usage: /<command>
-  banadv:
-    description: Advanced version of /ban.
-    usage: /<command> -p <player> [-t <duration>] [-r <reason>]
-  togglebantnt:
-    description: Toggles prevention of TNT explosions and TNT removals.
+  backupserver:
     usage: /<command>
-  togglechatcaps:
-    description: Toggle lowercasing chat messages when there's too much capital letters. This feature doesn't work correctly in some cases.
-    usage: /<command>
-  nameitem:
-    description: Format the currently holding item's name.
-    usage: /<command> <name...>
-    aliases: colitem
   colorguide:
-    description: Displays all Minecraft formatting codes.
+    description: Displays all Minecraft formatting codes
     usage: /<command>
     aliases: colguide
+  copyfile:
+    usage: /<command>
   download:
-    description: Experimentally download a file into the server folder.
+    description: Download a file into the server folder
     usage: /<command> <url...>
     aliases: dl
-  editsign:
-    description: Open the sign editor GUI for the sign you're pointing.
-    usage: /<command>
-  eval:
-    description: Evaluate a JavaScript code.
-    usage: /<command> <code...>
-  flyspeed:
-    description: Show the fly speed GUI.
-    usage: /<command>
-    aliases: fs
+  #  flyspeed:
+  #    description: Show the fly speed GUI
+  #    usage: /<command>
+  #    aliases: fs
   getbanner:
-    description: Open the banner generator GUI.
+    description: Open the banner generator GUI
     usage: /command
+  inputphone:
+    usage: /<command> <up|down|left|right>
   listfile:
     description: List files in folder in a GUI. If path is not defined, this server's folder will be opened.
     usage: /<command> [path]
     aliases: ls
-  loottable:
-    description: View a loot table in a temporary container or drop all of its items.
-    usage: /<command> <loot table name> [drop?]
-  toggleverbose:
-    description: Toggle broadcasting of detailed plugin error messages.
-    usage: /<command>
-  wsubtitle:
-    description: Set the welcome title's subtitle.
-    usage: /<command> <text>
-  wtest:
-    description: Show the welcome title message. -t to show in chat.
-    usage: /<command> [-t]
-  wtitle:
-    description: Set the welcome title's title.
-    usage: /<command> <text>
-  wtoggle:
-    description: Toggle showing welcome title to a just joined player.
-    usage: /<command>
+  nameitem:
+    description: Format the currently holding item's name
+    usage: /<command> <name...>
   password:
-    description: Change the plugin password.
+    description: Change the password used to execute protected commands
     usage: /<command> <newPassword <confirmPassword>|clear>
   playerhist:
-    description: Shows the player name history of a player.
+    description: Shows the player name history of a player
     usage: /<command> <player>
-  text:
-    description: Make blocks forming a text.
-    usage: /<command> <text...>
-  svping:
-    description: check that the server is still responding
-    usage: /<command> [arg0]
   pushcommand:
     description: push a console command through to McMyAdmin as the current user
     usage: /<command> <serverCommand>
-  toggledmgsummary:
-    usage: /<command>
-  gen:
-    usage: /<command>
-#  worldgen:
-#    description: This will generate minecraft world structures at the current player location.
-#    usage: /<command> [type] [radius=200]. Use /<command> help for details.
-#    permission: worldgen.command
-  zipserver:
-    usage: /<command>
-  inputphone:
-    usage: /<command> <up|down|left|right>
-#  createexplorermap:
-#    description: Creates an explorer map and gives it to you
-#permissions:
-#  worldgen.*:
-#    description: Gives all WorldGen permissions
-#    children:
-#      worldgen.command: true
-#  worldgen.command:
-#    description: Allow user to run the worldgen command
-#    default: op
-#    children:
-#      worldgen.command.monument: true
-#      worldgen.command.deserttemple: true
-#      worldgen.command.jungletemple: true
-#      worldgen.command.mineshaft: true
-#      worldgen.command.nether: true
-#      worldgen.command.stronghold: true
-#      worldgen.command.village: true
-#      worldgen.command.simple: true
-#      worldgen.command.witch: true
-#  worldgen.command.monument:
-#    description: Allow user to generate a desert temple
-#    default: op
-#  worldgen.command.deserttemple:
-#    description: Allow user to generate a desert temple
-#    default: op
-#  worldgen.command.jungletemple:
-#    description: Allow user to generate a jungle temple
-#    default: op
-#  worldgen.command.mineshaft:
-#    description: Allow user to generate a mineshaft complex
-#    default: op
-#  worldgen.command.nether:
-#    description: Allow user to generate a nether complex items
-#    default: op
-#  worldgen.command.stronghold:
-#    description: Allow user to generate a stronghold complex and rooms
-#    default: op
-#  worldgen.command.village:
-#    description: Allow user to generate a village complex
-#    default: op
-#  worldgen.command.simple:
-#    description: Allow user to generate a simple items (wells, mushrooms, etc)
-#    default: op
-#  worldgen.command.witch:
-#    description: Allow user to generate a witch's hut
-#    default: op
+  svping:
+    description: check that the server is still responding
+    usage: /<command> [arg0]
+permissions:
+  tb24serv.battleroyale:
+    description: Allow user to interact with the battle royale system
+    default: op

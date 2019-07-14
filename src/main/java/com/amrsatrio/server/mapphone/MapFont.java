@@ -20,7 +20,6 @@ public class MapFont {
 			if (sprite.getHeight() > height) {
 				height = sprite.getHeight();
 			}
-
 		}
 	}
 

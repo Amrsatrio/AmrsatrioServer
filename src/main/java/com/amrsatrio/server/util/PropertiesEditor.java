@@ -1,13 +1,15 @@
-package com.amrsatrio.server;
+package com.amrsatrio.server.util;
 
-import net.minecraft.server.v1_12_R1.ChatClickable;
-import net.minecraft.server.v1_12_R1.ChatClickable.EnumClickAction;
-import net.minecraft.server.v1_12_R1.ChatComponentText;
-import net.minecraft.server.v1_12_R1.ChatModifier;
+import com.amrsatrio.server.Messages;
+import com.amrsatrio.server.ServerPlugin;
+import net.minecraft.server.v1_14_R1.ChatClickable;
+import net.minecraft.server.v1_14_R1.ChatClickable.EnumClickAction;
+import net.minecraft.server.v1_14_R1.ChatComponentText;
+import net.minecraft.server.v1_14_R1.ChatModifier;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_14_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -35,18 +37,18 @@ public class PropertiesEditor {
 	private String currentKey = null;
 	private boolean canEdit;
 
-	public PropertiesEditor(Player a, File b) throws IOException {
-		player = a;
-		file = b;
+	public PropertiesEditor(Player player, File file) throws IOException {
+		this.player = player;
+		this.file = file;
 		prop = new Properties();
-		canEdit = Utils.isInSubDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(), file.getParentFile()) || file.getParentFile().getName().equals("108.61.184.122:10210");
+		canEdit = Utils.isInSubDirectory(Bukkit.getWorldContainer().getAbsoluteFile().getParentFile(), this.file.getParentFile()) || this.file.getParentFile().getName().equals("108.61.184.122:10210");
 
-		try (FileInputStream fileinputstream = new FileInputStream(b)) {
+		try (FileInputStream fileinputstream = new FileInputStream(file)) {
 			prop.load(fileinputstream);
 		}
 	}
 
-	private void a() {
+	private void createItems() {
 		inv = Bukkit.createInventory(null, (int) Math.ceil((double) prop.size() / 9) * 9, (canEdit ? "" : "\u00a7o") + file.getName() + " - Properties editor");
 		int i = 0;
 
@@ -82,7 +84,7 @@ public class PropertiesEditor {
 	}
 
 	public void show() {
-		a();
+		createItems();
 		if (player.getOpenInventory() != null) {
 			player.closeInventory();
 		}
@@ -95,7 +97,7 @@ public class PropertiesEditor {
 		}
 	}
 
-	public void a(AsyncPlayerChatEvent a) {
+	public void handleChat(AsyncPlayerChatEvent a) {
 		if (currentKey != null) {
 			a.setCancelled(true);
 			prop.setProperty(currentKey, a.getMessage());
