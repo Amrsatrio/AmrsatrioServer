@@ -8,6 +8,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+
 import net.minecraft.server.v1_14_R1.CommandListenerWrapper;
 
 public class CommandConfig extends AbstractBrigadierCommand {

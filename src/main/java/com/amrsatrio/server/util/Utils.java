@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+
 import net.minecraft.server.v1_14_R1.BlockPosition;
 import net.minecraft.server.v1_14_R1.ChatClickable;
 import net.minecraft.server.v1_14_R1.ChatClickable.EnumClickAction;
@@ -26,6 +27,7 @@ import net.minecraft.server.v1_14_R1.PacketPlayOutChat;
 import net.minecraft.server.v1_14_R1.PacketPlayOutPlayerListHeaderFooter;
 import net.minecraft.server.v1_14_R1.World;
 import net.minecraft.server.v1_14_R1.WorldServer;
+
 import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang.time.DurationFormatUtils;
 import org.apache.logging.log4j.LogManager;
@@ -627,7 +629,7 @@ public class Utils {
 		} else if (sender instanceof CommandMinecart) {
 			return ((CraftMinecartCommand) sender).getHandle().getCommandBlock().getWrapper();
 		} else if (sender instanceof RemoteConsoleCommandSender) {
-			return ((DedicatedServer) MinecraftServer.getServer()).remoteControlCommandListener.f();
+			return ((DedicatedServer) MinecraftServer.getServer()).remoteControlCommandListener.getWrapper();
 		} else if (sender instanceof ConsoleCommandSender) {
 			return ((CraftServer) sender.getServer()).getServer().getServerCommandListener();
 		} else if (sender instanceof ProxiedCommandSender) {

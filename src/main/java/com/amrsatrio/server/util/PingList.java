@@ -8,8 +8,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.mojang.authlib.GameProfile;
+
 import net.minecraft.server.v1_14_R1.JsonList;
 import net.minecraft.server.v1_14_R1.JsonListEntry;
+
 import org.bukkit.craftbukkit.v1_14_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.server.ServerListPingEvent;

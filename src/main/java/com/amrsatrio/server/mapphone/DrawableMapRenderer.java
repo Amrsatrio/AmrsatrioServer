@@ -1,6 +1,7 @@
 package com.amrsatrio.server.mapphone;
 
 import com.amrsatrio.server.mapphone.MapFont.CharacterSprite;
+
 import org.bukkit.entity.Player;
 import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapPalette;

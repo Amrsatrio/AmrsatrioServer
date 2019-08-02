@@ -2,10 +2,12 @@ package com.amrsatrio.server.util;
 
 import com.amrsatrio.server.Messages;
 import com.amrsatrio.server.ServerPlugin;
+
 import net.minecraft.server.v1_14_R1.ChatClickable;
 import net.minecraft.server.v1_14_R1.ChatClickable.EnumClickAction;
 import net.minecraft.server.v1_14_R1.ChatComponentText;
 import net.minecraft.server.v1_14_R1.ChatModifier;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;

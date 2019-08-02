@@ -8,6 +8,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+
 import net.minecraft.server.v1_14_R1.ArgumentChat;
 import net.minecraft.server.v1_14_R1.ArgumentProfile;
 import net.minecraft.server.v1_14_R1.ChatComponentUtils;
@@ -18,7 +19,6 @@ import net.minecraft.server.v1_14_R1.GameProfileBanEntry;
 import net.minecraft.server.v1_14_R1.GameProfileBanList;
 import net.minecraft.server.v1_14_R1.IChatBaseComponent;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -26,6 +26,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.annotation.Nullable;
 
 public class CommandBanExtended extends AbstractBrigadierCommand {
 	public CommandBanExtended() {
